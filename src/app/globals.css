@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+@theme {
+  --color-charcoal: #111111;
+  --color-charcoal-light: #1A1A1A;
+  --color-charcoal-dark: #0A0A0A;
+  --color-matrix: #00FF41;
+  --color-matrix-dim: #008F11;
+  --color-electric: #00E5FF;
+  --color-electric-deep: #00B4D8;
+}
+
+body {
+  background-color: var(--color-charcoal);
+  color: #D1D5DB; /* Tailwind gray-300 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: white;
+}
