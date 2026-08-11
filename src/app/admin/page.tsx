@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Send, Shield, Loader2, Lock, Database, Plus, Trash2, Settings, CheckCircle2 } from 'lucide-react';
+import { Send, Shield, Loader2, Lock, Database, Plus, Trash2, Settings, CheckCircle2, Edit2, Save, X as CloseIcon } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
@@ -23,6 +23,12 @@ export default function AdminDashboard() {
   const [servicePrice, setServicePrice] = useState('');
   const [serviceDesc, setServiceDesc] = useState('');
   const [dbStatus, setDbStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+
+  // Service CMS Edit State
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editDesc, setEditDesc] = useState('');
 
   // Global Settings State
   const [githubUrl, setGithubUrl] = useState('');
@@ -105,6 +111,23 @@ export default function AdminDashboard() {
 
   const handleDeleteService = async (id: number) => {
     await supabase.from('pricing_services').delete().eq('id', id);
+    fetchServices();
+  };
+
+  const startEdit = (service: any) => {
+    setEditingId(service.id);
+    setEditName(service.service_name);
+    setEditPrice(service.price);
+    setEditDesc(service.description);
+  };
+
+  const handleSaveEdit = async (id: number) => {
+    await supabase.from('pricing_services').update({
+      service_name: editName,
+      price: editPrice,
+      description: editDesc
+    }).eq('id', id);
+    setEditingId(null);
     fetchServices();
   };
 
@@ -243,14 +266,32 @@ export default function AdminDashboard() {
                     <p className="text-sm text-slate-500 italic">No custom services found. Add one to overwrite default pricing.</p>
                   ) : (
                     services.map((service) => (
-                      <div key={service.id} className="flex justify-between items-start bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-                        <div>
-                          <h4 className="font-bold text-blue-900 text-sm">{service.service_name}</h4>
-                          <p className="text-xs text-slate-500 mt-1">{service.price}</p>
-                        </div>
-                        <button onClick={() => handleDeleteService(service.id)} className="text-slate-400 hover:text-red-600 transition p-1">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <div key={service.id} className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+                        {editingId === service.id ? (
+                          <div className="space-y-3">
+                            <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-2 text-sm text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                            <input type="text" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-2 text-sm text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                            <div className="flex space-x-2 mt-2">
+                              <button onClick={() => handleSaveEdit(service.id)} className="flex-1 bg-green-600 text-white text-xs font-bold py-2 rounded-md hover:bg-green-700 transition flex items-center justify-center space-x-1"><Save className="w-3 h-3" /><span>Save</span></button>
+                              <button onClick={() => setEditingId(null)} className="flex-1 bg-gray-200 text-slate-700 text-xs font-bold py-2 rounded-md hover:bg-gray-300 transition flex items-center justify-center space-x-1"><CloseIcon className="w-3 h-3" /><span>Cancel</span></button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-bold text-blue-900 text-sm">{service.service_name}</h4>
+                              <p className="text-xs text-slate-500 mt-1">{service.price}</p>
+                            </div>
+                            <div className="flex space-x-2">
+                              <button onClick={() => startEdit(service)} className="text-slate-400 hover:text-blue-600 transition p-1">
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleDeleteService(service.id)} className="text-slate-400 hover:text-red-600 transition p-1">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
