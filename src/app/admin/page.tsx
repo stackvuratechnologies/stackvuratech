@@ -1,14 +1,29 @@
 'use client';
 
 import { useState } from 'react';
-import { Send, Shield, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Send, Shield, Loader2, ArrowLeft, CheckCircle2, Lock } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminDashboard() {
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [passkey, setPasskey] = useState('');
+  const [authError, setAuthError] = useState(false);
+
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+
+  const handleAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passkey === process.env.NEXT_PUBLIC_ADMIN_PASSKEY) {
+      setIsAuthorized(true);
+      setAuthError(false);
+    } else {
+      setAuthError(true);
+      setPasskey('');
+    }
+  };
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,18 +50,55 @@ export default function AdminDashboard() {
     }
   };
 
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
+        <div className="bg-white border border-gray-200 rounded-xl shadow-xl p-8 max-w-md w-full">
+          <div className="text-center mb-6">
+            <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-8 h-8 text-blue-900" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900">Restricted Access</h2>
+            <p className="text-sm text-slate-500 mt-2">Enter the Master Passkey to access the StackVura ERP Override Panel.</p>
+          </div>
+
+          <form onSubmit={handleAuth} className="space-y-4">
+            <input 
+              type="password" 
+              required 
+              value={passkey} 
+              onChange={(e) => setPasskey(e.target.value)} 
+              placeholder="Enter Passkey" 
+              className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none text-center tracking-widest" 
+            />
+            {authError && <p className="text-red-600 text-xs font-bold text-center">Invalid Passkey. Access Denied.</p>}
+            <button type="submit" className="w-full bg-blue-900 text-white font-bold py-3 rounded-md hover:bg-blue-800 transition shadow-md">
+              Authenticate
+            </button>
+          </form>
+          
+          <div className="mt-6 text-center">
+             <Link href="/" className="text-sm text-slate-500 hover:text-blue-900 font-semibold transition">
+               &larr; Return to Public Site
+             </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-8 font-sans">
       <div className="max-w-4xl mx-auto">
         
         <div className="flex items-center justify-between mb-8">
-          <Link href="/" className="flex items-center space-x-2 text-slate-500 hover:text-blue-900 transition">
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-bold">Return to Main Site</span>
-          </Link>
-          <div className="flex items-center space-x-2 text-blue-900 bg-blue-100 px-4 py-2 rounded-md">
+          <button onClick={() => setIsAuthorized(false)} className="flex items-center space-x-2 text-slate-500 hover:text-blue-900 transition">
+            <Lock className="w-4 h-4" />
+            <span className="text-sm font-bold">Lock Console</span>
+          </button>
+          <div className="flex items-center space-x-2 text-blue-900 bg-blue-100 px-4 py-2 rounded-md border border-blue-200">
             <Shield className="w-5 h-5" />
-            <span className="font-bold">ERP Admin Override</span>
+            <span className="font-bold">ERP Admin Override Active</span>
           </div>
         </div>
 
