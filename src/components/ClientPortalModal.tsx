@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { X, Lock, CheckCircle2, FileText, Printer, Shield, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Lock, FileText, Printer, Clock, UserPlus, LifeBuoy, Send, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface ClientPortalModalProps {
   isOpen: boolean;
@@ -10,140 +11,246 @@ interface ClientPortalModalProps {
 
 export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModalProps) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [view, setView] = useState<'login' | 'register'>('login');
+  const [dashView, setDashView] = useState<'overview' | 'support'>('overview');
+  
+  // Auth State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [company, setCompany] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+
+  // Support Ticket State
+  const [ticketType, setTicketType] = useState('');
+  const [ticketSubject, setTicketSubject] = useState('');
+  const [ticketMessage, setTicketMessage] = useState('');
+  const [supportStatus, setSupportStatus] = useState<'idle' | 'submitting' | 'submitted' | 'error'>('idle');
 
   if (!isOpen) return null;
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
+    setLoading(true);
+    setAuthError('');
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    
+    if (error) {
+      setAuthError(error.message);
+    } else {
       setIsLoggedIn(true);
+    }
+    setLoading(false);
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setAuthError('');
+
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({ email, password });
+
+    if (signUpError) {
+      setAuthError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (authData.user) {
+      // Create the client profile record in the database
+      const { error: dbError } = await supabase.from('clients').insert({
+        id: authData.user.id,
+        full_name: fullName,
+        company_name: company,
+      });
+
+      if (dbError) {
+        setAuthError(dbError.message);
+      } else {
+        setIsLoggedIn(true);
+      }
+    }
+    setLoading(false);
+  };
+
+  const handleSupportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSupportStatus('submitting');
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      const { error } = await supabase.from('support_tickets').insert({
+        client_id: user.id,
+        ticket_type: ticketType,
+        subject: ticketSubject,
+        message: ticketMessage
+      });
+      
+      if (error) {
+        setSupportStatus('error');
+      } else {
+        setSupportStatus('submitted');
+        setTicketType('');
+        setTicketSubject('');
+        setTicketMessage('');
+        setTimeout(() => setSupportStatus('idle'), 4000);
+      }
     }
   };
 
+  const handleClose = () => {
+    setIsLoggedIn(false);
+    setView('login');
+    setDashView('overview');
+    setEmail('');
+    setPassword('');
+    setAuthError('');
+    onClose();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-mono">
-      <div className="bg-charcoal-dark border border-gray-700 w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+      <div className="bg-white border border-gray-200 w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden relative max-h-[90vh] overflow-y-auto">
         
-        {/* Header */}
-        <div className="bg-gray-900 px-6 py-4 border-b border-gray-800 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <Lock className="w-5 h-5 text-matrix" />
-            <span className="text-white font-bold text-sm">StackVura Client Portal</span>
+        <div className="bg-blue-900 px-6 py-4 flex justify-between items-center sticky top-0 z-10">
+          <div className="flex items-center space-x-2 text-white">
+            <Lock className="w-5 h-5 text-yellow-500" />
+            <span className="font-bold text-lg">Client Access Dashboard</span>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition">
-            <X className="w-5 h-5" />
+          <button onClick={handleClose} className="text-blue-200 hover:text-white transition">
+            <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-6">
+        <div className="p-8">
           {!isLoggedIn ? (
-            /* Login Form */
-            <form onSubmit={handleLogin} className="space-y-4">
+            <div className="max-w-md mx-auto">
               <div className="text-center mb-6">
-                <h3 className="text-xl font-bold text-white">Client Access Dashboard</h3>
-                <p className="text-xs text-gray-400 mt-1">Access project telemetry, invoices, and printing deliverables.</p>
-              </div>
-
-              <div className="space-y-2 text-sm">
-                <label className="text-gray-300">Corporate Email</label>
-                <input 
-                  type="email" 
-                  required 
-                  value={email} 
-                  onChange={(e) => setEmail(e.target.value)} 
-                  placeholder="client@company.com" 
-                  className="w-full bg-charcoal border border-gray-700 rounded p-3 text-white focus:border-matrix focus:outline-none"
-                />
-              </div>
-
-              <div className="space-y-2 text-sm">
-                <label className="text-gray-300">Access Passkey / Password</label>
-                <input 
-                  type="password" 
-                  required 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  placeholder="••••••••••••" 
-                  className="w-full bg-charcoal border border-gray-700 rounded p-3 text-white focus:border-matrix focus:outline-none"
-                />
-              </div>
-
-              <button 
-                type="submit" 
-                className="w-full bg-matrix text-charcoal-dark font-bold py-3 rounded hover:bg-matrix-dim transition mt-4"
-              >
-                Authenticate Session
-              </button>
-
-              <div className="text-center pt-2">
-                <p className="text-[11px] text-gray-500">
-                  Demo Credentials: Enter any email to test the client dashboard preview locally.
+                <h3 className="text-xl font-bold text-slate-900">{view === 'login' ? 'Welcome Back' : 'Register Corporate Account'}</h3>
+                <p className="text-slate-600 text-sm mt-2">
+                  {view === 'login' ? 'Log in to follow up on your project status, invoices, and deliverables.' : 'Create an account to track your project progress and request new services.'}
                 </p>
               </div>
-            </form>
-          ) : (
-            /* Authenticated Portal Dashboard */
-            <div className="space-y-6">
-              <div className="flex justify-between items-center border-b border-gray-800 pb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-white">Welcome back, {email.split('@')[0]}</h3>
-                  <p className="text-xs text-matrix">Account Status: Active Client [Enterprise Tier]</p>
+
+              <form onSubmit={view === 'login' ? handleLogin : handleRegister} className="space-y-4">
+                {view === 'register' && (
+                  <>
+                    <div className="space-y-2 text-sm">
+                      <label className="font-semibold text-slate-700">Full Name</label>
+                      <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <label className="font-semibold text-slate-700">Company Name</label>
+                      <input type="text" required value={company} onChange={(e) => setCompany(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                    </div>
+                  </>
+                )}
+                
+                <div className="space-y-2 text-sm">
+                  <label className="font-semibold text-slate-700">Corporate Email</label>
+                  <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
                 </div>
+                
+                <div className="space-y-2 text-sm">
+                  <label className="font-semibold text-slate-700">Password / Access Passkey</label>
+                  <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                </div>
+                
+                {authError && <div className="text-red-600 bg-red-50 border border-red-200 p-3 rounded-md text-sm font-semibold">{authError}</div>}
+
+                <button type="submit" disabled={loading} className="w-full bg-blue-900 text-white font-bold py-3 rounded-md hover:bg-blue-800 transition shadow-md flex justify-center items-center">
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (view === 'login' ? 'Secure Login' : 'Register Account')}
+                </button>
+              </form>
+
+              <div className="mt-6 text-center border-t border-gray-200 pt-4">
                 <button 
-                  onClick={() => setIsLoggedIn(false)} 
-                  className="text-xs text-red-400 hover:underline"
+                  onClick={() => { setView(view === 'login' ? 'register' : 'login'); setAuthError(''); }} 
+                  className="text-sm text-blue-900 font-bold hover:underline flex items-center justify-center w-full space-x-2"
                 >
+                  <UserPlus className="w-4 h-4" />
+                  <span>{view === 'login' ? 'Need an account? Register here.' : 'Already have an account? Log in.'}</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center border-b border-gray-200 pb-4">
+                <div className="flex space-x-6">
+                  <button onClick={() => setDashView('overview')} className={`font-bold text-sm pb-4 -mb-4 border-b-2 transition-colors ${dashView === 'overview' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500 hover:text-blue-900'}`}>
+                    Project Overview
+                  </button>
+                  <button onClick={() => setDashView('support')} className={`font-bold text-sm pb-4 -mb-4 border-b-2 transition-colors flex items-center space-x-1 ${dashView === 'support' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500 hover:text-blue-900'}`}>
+                    <LifeBuoy className="w-4 h-4" />
+                    <span>Support & Complaints</span>
+                  </button>
+                </div>
+                <button onClick={async () => { await supabase.auth.signOut(); setIsLoggedIn(false); }} className="text-sm font-semibold text-red-600 hover:underline">
                   Sign Out
                 </button>
               </div>
 
-              {/* Active Projects Overview */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-charcoal p-4 rounded border border-gray-800">
-                  <div className="flex items-center space-x-2 text-electric mb-2">
-                    <Clock className="w-4 h-4" />
-                    <span className="text-xs font-bold uppercase">Active Build</span>
+              {dashView === 'overview' ? (
+                <>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">Welcome to your Dashboard</h3>
+                    <p className="text-sm text-green-600 font-medium mt-1">Status: Authenticated Client Account</p>
                   </div>
-                  <h4 className="text-white font-bold text-sm">Web3 Loyalty Portal & ERP Integration</h4>
-                  <p className="text-xs text-gray-400 mt-1">Progress: 85% (Staging QA)</p>
-                </div>
-
-                <div className="bg-charcoal p-4 rounded border border-gray-800">
-                  <div className="flex items-center space-x-2 text-matrix mb-2">
-                    <Printer className="w-4 h-4" />
-                    <span className="text-xs font-bold uppercase">Printing Batch</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="bg-slate-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+                      <div className="flex items-center space-x-2 text-blue-900 mb-3">
+                        <Clock className="w-5 h-5" />
+                        <span className="text-sm font-bold uppercase tracking-wide">Active Build</span>
+                      </div>
+                      <h4 className="text-slate-900 font-bold text-lg">Requirements Analysis</h4>
+                      <p className="text-sm text-slate-600 mt-2">Progress: Initializing (Awaiting Specs)</p>
+                    </div>
                   </div>
-                  <h4 className="text-white font-bold text-sm">NFC Smart Business Cards (500 units)</h4>
-                  <p className="text-xs text-gray-400 mt-1">Status: Ready for Dispatch</p>
+                </>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">Open a Support Ticket</h3>
+                    <p className="text-sm text-slate-600 mt-1">File a complaint, report a bug, or request a project update. This goes directly to our engineering database.</p>
+                  </div>
+                  
+                  <form onSubmit={handleSupportSubmit} className="space-y-4 bg-slate-50 p-6 rounded-xl border border-gray-200">
+                    <div className="space-y-2 text-sm">
+                      <label className="font-semibold text-slate-700">Ticket Type</label>
+                      <select required value={ticketType} onChange={(e) => setTicketType(e.target.value)} className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none">
+                        <option value="">Select Category</option>
+                        <option value="bug">Software Bug / Error</option>
+                        <option value="complaint">Service Complaint</option>
+                        <option value="update">Request Project Update</option>
+                        <option value="billing">Billing / Invoice Issue</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <label className="font-semibold text-slate-700">Subject</label>
+                      <input type="text" required value={ticketSubject} onChange={(e) => setTicketSubject(e.target.value)} placeholder="Brief description of the issue" className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <label className="font-semibold text-slate-700">Detailed Message</label>
+                      <textarea required value={ticketMessage} onChange={(e) => setTicketMessage(e.target.value)} rows={4} placeholder="Please provide as much detail as possible..." className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none"></textarea>
+                    </div>
+                    
+                    {supportStatus === 'submitted' && <div className="bg-green-50 border border-green-200 text-green-700 p-4 rounded-md text-sm font-bold text-center">Ticket Successfully Logged in Database.</div>}
+                    {supportStatus === 'error' && <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md text-sm font-bold text-center">Failed to log ticket. Please try again.</div>}
+                    
+                    {supportStatus !== 'submitted' && (
+                      <button type="submit" disabled={supportStatus === 'submitting'} className="w-full bg-blue-900 text-white font-bold py-3 rounded-md hover:bg-blue-800 transition shadow-md flex items-center justify-center space-x-2">
+                        {supportStatus === 'submitting' ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /><span>Submit Ticket to Engineering</span></>}
+                      </button>
+                    )}
+                  </form>
                 </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="space-y-2">
-                <h4 className="text-xs text-gray-400 uppercase tracking-wider">Client Quick Actions</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <button className="bg-charcoal border border-gray-700 p-3 rounded text-xs text-gray-300 hover:border-matrix hover:text-white flex flex-col items-center justify-center space-y-2">
-                    <FileText className="w-4 h-4 text-matrix" />
-                    <span>Download Invoices</span>
-                  </button>
-                  <button className="bg-charcoal border border-gray-700 p-3 rounded text-xs text-gray-300 hover:border-matrix hover:text-white flex flex-col items-center justify-center space-y-2">
-                    <Printer className="w-4 h-4 text-electric" />
-                    <span>Re-order Printing</span>
-                  </button>
-                  <button className="bg-charcoal border border-gray-700 p-3 rounded text-xs text-gray-300 hover:border-matrix hover:text-white flex flex-col items-center justify-center space-y-2 col-span-2 sm:col-span-1">
-                    <Shield className="w-4 h-4 text-matrix" />
-                    <span>Security Logs</span>
-                  </button>
-                </div>
-              </div>
-
+              )}
             </div>
           )}
         </div>
-
       </div>
     </div>
   );

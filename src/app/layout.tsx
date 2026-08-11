@@ -13,8 +13,8 @@ const firaCode = Fira_Code({
 });
 
 export const metadata: Metadata = {
-  title: "StackVura Technologies | Decentralized Cloud & Web3 Infrastructure",
-  description: "Enterprise tech firm specializing in DevSecOps, Smart Contract Auditing, and Workflow Automation. We build secure, scalable solutions for SMEs and Web3 projects.",
+  title: "StackVura Technologies | Enterprise Cloud & Software",
+  description: "Enterprise tech firm specializing in Custom Software, Cloud Architecture, and Automation.",
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${firaCode.variable} font-sans bg-charcoal text-gray-300 antialiased min-h-screen flex flex-col`}>
+      <body className={`${inter.variable} ${firaCode.variable} font-sans bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col`}>
         {children}
       </body>
     </html>

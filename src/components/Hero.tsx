@@ -4,33 +4,28 @@ import { Server, Globe } from 'lucide-react';
 
 export default function Hero() {
   return (
-    <section className="w-full py-24 px-4 flex flex-col items-start justify-center max-w-6xl mx-auto min-h-[70vh]">
+    <section className="w-full py-24 px-4 flex flex-col items-center text-center justify-center max-w-4xl mx-auto min-h-[70vh]">
       
-      <div className="mb-6 inline-flex items-center space-x-2 bg-charcoal-light border border-gray-800 px-3 py-1 rounded font-mono text-xs text-matrix">
-        <span className="text-gray-500">$</span>
-        <span>systemctl status stackvura-infrastructure</span>
+      <div className="mb-6 inline-flex items-center space-x-2 bg-blue-50 border border-blue-100 px-4 py-1.5 rounded-full text-sm font-semibold text-blue-900">
+        <span>Enterprise Technology Solutions</span>
       </div>
 
-      <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 tracking-tight">
-        StackVura Technologies
+      <h1 className="text-4xl md:text-6xl font-extrabold text-slate-900 mb-6 tracking-tight leading-tight">
+        Building Scalable <span className="text-blue-900">Infrastructure</span> For Your Business
       </h1>
       
-      <h2 className="text-xl md:text-3xl font-mono text-electric-deep mb-6">
-        Enterprise Software, Cloud & Cybersecurity
-      </h2>
-      
-      <p className="text-gray-400 text-lg md:text-xl max-w-2xl leading-relaxed mb-10">
-        We solve complex business bottlenecks. From building lightning-fast enterprise websites and securing cloud architectures, to automating daily workflows and integrating next-generation blockchain solutions. We build technology that makes your business faster, safer, and more profitable.
+      <p className="text-slate-600 text-lg md:text-xl max-w-3xl leading-relaxed mb-10">
+        We solve complex business bottlenecks. From building lightning-fast enterprise websites and securing cloud architectures, to automating daily workflows and integrating next-generation software solutions.
       </p>
 
-      <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6 w-full sm:w-auto">
-        <a href="#services" className="flex items-center justify-center space-x-2 bg-matrix text-charcoal-dark px-6 py-3 rounded font-mono font-bold hover:bg-matrix-dim transition-colors">
-          <Globe className="w-4 h-4" />
-          <span>Explore Our Solutions</span>
+      <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6 w-full sm:w-auto justify-center">
+        <a href="#services" className="flex items-center justify-center space-x-2 bg-blue-900 text-white px-8 py-3.5 rounded-md font-semibold hover:bg-blue-800 transition-colors shadow-md">
+          <Globe className="w-5 h-5" />
+          <span>Explore Solutions</span>
         </a>
-        <a href="#case-studies" className="flex items-center justify-center space-x-2 border border-gray-700 bg-charcoal-light text-white px-6 py-3 rounded font-mono hover:border-gray-500 transition-colors">
-          <Server className="w-4 h-4 text-electric" />
-          <span>View Architecture Case Studies</span>
+        <a href="#case-studies" className="flex items-center justify-center space-x-2 border border-slate-300 bg-white text-slate-700 px-8 py-3.5 rounded-md font-semibold hover:bg-slate-50 transition-colors shadow-sm">
+          <Server className="w-5 h-5 text-blue-900" />
+          <span>View Case Studies</span>
         </a>
       </div>
       
