@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # 1. Enterprise Portfolio (Next.js SSR)
+  portfolio:
+    image: captain-lgtm/stackvura-web:latest
+    container_name: stackvura-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+
+  # 2. Internal Automation Engine
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: stackvura-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=n8n.stackvuratechnologies.online
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://n8n.stackvuratechnologies.online/
+      - GENERIC_TIMEZONE=Africa/Nairobi
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  n8n_data:
