@@ -1,10 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Send, MessageSquare } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 export default function Contact() {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  
+  // Dynamic Global Settings
+  const [phone, setPhone] = useState('+254 726 396 632');
+  const [email, setEmail] = useState('admin@stackvuratechnologies.online');
+  const [location, setLocation] = useState('Machakos, Kenya');
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const { data } = await supabase.from('site_settings').select('*');
+      if (data) {
+        data.forEach((setting) => {
+          if (setting.setting_key === 'contact_phone') setPhone(setting.setting_value);
+          if (setting.setting_key === 'contact_email') setEmail(setting.setting_value);
+          if (setting.setting_key === 'contact_location') setLocation(setting.setting_value);
+        });
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const sendDiscordAlert = async (errorMsg: string, formDataObj: any) => {
     const webhook = process.env.NEXT_PUBLIC_DISCORD_WEBHOOK_URL;
@@ -75,15 +95,15 @@ export default function Contact() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <div className="bg-slate-50 border border-gray-200 p-6 rounded-xl text-center shadow-sm">
             <p className="text-slate-500 text-sm font-semibold mb-2 uppercase tracking-wide">Direct Line</p>
-            <p className="text-blue-900 font-bold text-lg">+254 726 396 632</p>
+            <p className="text-blue-900 font-bold text-lg">{phone}</p>
           </div>
           <div className="bg-blue-900 border border-blue-800 p-6 rounded-xl text-center shadow-md">
             <p className="text-blue-200 text-sm font-semibold mb-2 uppercase tracking-wide">Enterprise Email</p>
-            <p className="text-white font-bold text-base md:text-lg">admin@stackvuratechnologies.online</p>
+            <p className="text-white font-bold text-base md:text-lg overflow-hidden text-ellipsis">{email}</p>
           </div>
           <div className="bg-slate-50 border border-gray-200 p-6 rounded-xl text-center shadow-sm">
             <p className="text-slate-500 text-sm font-semibold mb-2 uppercase tracking-wide">Headquarters</p>
-            <p className="text-blue-900 font-bold text-lg">Machakos, Kenya</p>
+            <p className="text-blue-900 font-bold text-lg">{location}</p>
           </div>
         </div>
 

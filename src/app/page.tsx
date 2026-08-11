@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Services from "@/components/Services";
@@ -12,6 +12,7 @@ import ClientPortalModal from "@/components/ClientPortalModal";
 import BookingModal from "@/components/BookingModal";
 import DemoModal from "@/components/DemoModal";
 import { ExternalLink } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 const GithubIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -33,6 +34,17 @@ export default function Home() {
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [isDemoOpen, setIsDemoOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<string | undefined>(undefined);
+  const [githubUrl, setGithubUrl] = useState('https://github.com/captain-lgtm');
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const { data } = await supabase.from('site_settings').select('setting_value').eq('setting_key', 'github_url').single();
+      if (data) {
+        setGithubUrl(data.setting_value);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const handleOpenBooking = (serviceName?: string) => {
     setSelectedService(serviceName);
@@ -58,12 +70,12 @@ export default function Home() {
           <div className="text-center md:text-left mb-6 md:mb-0">
             <h4 className="text-blue-900 font-bold text-lg mb-2">StackVura Technologies</h4>
             <p className="text-slate-500 text-sm">Enterprise Cloud, Software & Branding</p>
-            <p className="text-slate-400 text-xs mt-2">Architected by kariuki Moses Mwihia © 2026</p>
+            <p className="text-slate-400 text-xs mt-2">Architected by Moses Kariuki Mwihia © 2026</p>
           </div>
           
           <div className="flex flex-col items-center md:items-end space-y-4">
             <div className="flex space-x-6">
-              <a href="https://github.com/captain-lgtm" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-blue-900 transition flex items-center space-x-2">
+              <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-blue-900 transition flex items-center space-x-2">
                 <GithubIcon className="w-5 h-5" />
                 <span className="text-sm font-semibold">Source Code Repository</span>
               </a>
