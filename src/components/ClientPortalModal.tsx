@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Lock, FileText, Printer, Clock, UserPlus, LifeBuoy, Send, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { X, Lock, FileText, Printer, Clock, UserPlus, LifeBuoy, Send, Loader2, Building2, User } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface ClientPortalModalProps {
@@ -15,6 +15,7 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
   const [dashView, setDashView] = useState<'overview' | 'support'>('overview');
   
   // Auth State
+  const [clientType, setClientType] = useState<'individual' | 'firm'>('firm');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -59,11 +60,11 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
     }
 
     if (authData.user) {
-      // Create the client profile record in the database
       const { error: dbError } = await supabase.from('clients').insert({
         id: authData.user.id,
         full_name: fullName,
-        company_name: company,
+        company_name: clientType === 'firm' ? company : null,
+        client_type: clientType
       });
 
       if (dbError) {
@@ -107,6 +108,8 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
     setDashView('overview');
     setEmail('');
     setPassword('');
+    setFullName('');
+    setCompany('');
     setAuthError('');
     onClose();
   };
@@ -129,7 +132,7 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
           {!isLoggedIn ? (
             <div className="max-w-md mx-auto">
               <div className="text-center mb-6">
-                <h3 className="text-xl font-bold text-slate-900">{view === 'login' ? 'Welcome Back' : 'Register Corporate Account'}</h3>
+                <h3 className="text-xl font-bold text-slate-900">{view === 'login' ? 'Welcome Back' : 'Register Account'}</h3>
                 <p className="text-slate-600 text-sm mt-2">
                   {view === 'login' ? 'Log in to follow up on your project status, invoices, and deliverables.' : 'Create an account to track your project progress and request new services.'}
                 </p>
@@ -138,19 +141,41 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
               <form onSubmit={view === 'login' ? handleLogin : handleRegister} className="space-y-4">
                 {view === 'register' && (
                   <>
+                    <div className="flex bg-slate-100 p-1 rounded-lg mb-4">
+                      <button 
+                        type="button"
+                        onClick={() => setClientType('individual')}
+                        className={`flex-1 flex items-center justify-center space-x-2 py-2 text-sm font-semibold rounded-md transition ${clientType === 'individual' ? 'bg-white text-blue-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        <User className="w-4 h-4" />
+                        <span>Individual</span>
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setClientType('firm')}
+                        className={`flex-1 flex items-center justify-center space-x-2 py-2 text-sm font-semibold rounded-md transition ${clientType === 'firm' ? 'bg-white text-blue-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        <Building2 className="w-4 h-4" />
+                        <span>Company</span>
+                      </button>
+                    </div>
+
                     <div className="space-y-2 text-sm">
                       <label className="font-semibold text-slate-700">Full Name</label>
                       <input type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
                     </div>
-                    <div className="space-y-2 text-sm">
-                      <label className="font-semibold text-slate-700">Company Name</label>
-                      <input type="text" required value={company} onChange={(e) => setCompany(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
-                    </div>
+                    
+                    {clientType === 'firm' && (
+                      <div className="space-y-2 text-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                        <label className="font-semibold text-slate-700">Company / Firm Name</label>
+                        <input type="text" required value={company} onChange={(e) => setCompany(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                      </div>
+                    )}
                   </>
                 )}
                 
                 <div className="space-y-2 text-sm">
-                  <label className="font-semibold text-slate-700">Corporate Email</label>
+                  <label className="font-semibold text-slate-700">Email Address</label>
                   <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
                 </div>
                 
@@ -196,8 +221,8 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
               {dashView === 'overview' ? (
                 <>
                   <div>
-                    <h3 className="text-xl font-bold text-slate-900">Welcome to your Dashboard</h3>
-                    <p className="text-sm text-green-600 font-medium mt-1">Status: Authenticated Client Account</p>
+                    <h3 className="text-xl font-bold text-slate-900">Welcome, {company || fullName || email.split('@')[0]}</h3>
+                    <p className="text-sm text-green-600 font-medium mt-1">Status: Active Client Dashboard</p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="bg-slate-50 p-6 rounded-xl border border-gray-200 shadow-sm">

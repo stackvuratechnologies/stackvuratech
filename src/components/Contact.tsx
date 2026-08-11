@@ -91,7 +91,7 @@ export default function Contact() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700">Company Name</label>
-              <input required name="companyName" type="text" className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:ring-blue-900 focus:outline-none transition" />
+              <input name="companyName" type="text" className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:ring-blue-900 focus:outline-none transition" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700">Contact Name</label>
