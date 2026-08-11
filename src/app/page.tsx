@@ -58,7 +58,7 @@ export default function Home() {
           <div className="text-center md:text-left mb-6 md:mb-0">
             <h4 className="text-blue-900 font-bold text-lg mb-2">StackVura Technologies</h4>
             <p className="text-slate-500 text-sm">Enterprise Cloud, Software & Branding</p>
-            <p className="text-slate-400 text-xs mt-2">Architected by Moses Kariuki Mwihia © 2026</p>
+            <p className="text-slate-400 text-xs mt-2">Architected by kariuki Moses Mwihia © 2026</p>
           </div>
           
           <div className="flex flex-col items-center md:items-end space-y-4">
