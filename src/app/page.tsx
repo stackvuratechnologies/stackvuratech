@@ -7,6 +7,7 @@ import Services from "@/components/Services";
 import Pricing from "@/components/Pricing";
 import Projects from "@/components/Projects";
 import SecOps from "@/components/SecOps";
+import FAQ from "@/components/FAQ";
 import Contact from "@/components/Contact";
 import ClientPortalModal from "@/components/ClientPortalModal";
 import BookingModal from "@/components/BookingModal";
@@ -63,6 +64,7 @@ export default function Home() {
       <Pricing onOpenBooking={handleOpenBooking} />
       <Projects onOpenDemo={() => setIsDemoOpen(true)} />
       <SecOps />
+      <FAQ />
       <Contact />
       
       <footer className="w-full bg-slate-50 border-t border-gray-200 py-12 px-4">
@@ -91,7 +93,6 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* Interactive Modals */}
       <ClientPortalModal 
         isOpen={isPortalOpen} 
         onClose={() => setIsPortalOpen(false)} 

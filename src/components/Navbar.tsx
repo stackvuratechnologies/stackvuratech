@@ -30,6 +30,9 @@ export default function Navbar({ onOpenPortal, onOpenBooking }: NavbarProps) {
           <Link href="#case-studies" className="text-slate-600 hover:text-blue-900 transition-colors">
             Case Studies
           </Link>
+          <Link href="#faq" className="text-slate-600 hover:text-blue-900 transition-colors">
+            FAQ
+          </Link>
         </div>
 
         <div className="flex items-center space-x-3">
