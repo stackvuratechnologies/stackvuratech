@@ -1,3 +1,4 @@
+import SchemaMarkup from '@/components/SchemaMarkup';
 import type { Metadata } from "next";
 import { Inter, Fira_Code } from "next/font/google";
 import "./globals.css";
@@ -16,17 +17,17 @@ export const metadata: Metadata = {
   title: "StackVura Technologies | Enterprise Cloud & Software",
   description: "Enterprise tech firm specializing in Custom Software, Cloud Architecture, and Automation.",
 };
-
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${firaCode.variable} font-sans bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col`}>
-        {children}
-      </body>
+      <head>
+        <SchemaMarkup />
+      </head>
+      <body>{children}</body>
     </html>
   );
 }
