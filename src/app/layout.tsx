@@ -1,6 +1,6 @@
-import SchemaMarkup from '@/components/SchemaMarkup';
 import type { Metadata } from "next";
 import { Inter, Fira_Code } from "next/font/google";
+import SchemaMarkup from '@/components/SchemaMarkup';
 import "./globals.css";
 
 const inter = Inter({ 
@@ -39,3 +39,18 @@ export const metadata: Metadata = {
     images: ['https://stackvuratechnologies.online/og-image.png'],
   },
 };
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <head>
+        <SchemaMarkup />
+      </head>
+      <body>{children}</body>
+    </html>
+  );
+}
