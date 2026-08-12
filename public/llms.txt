@@ -1,0 +1,18 @@
+# StackVura Technologies
+
+> StackVura Technologies is an enterprise cloud architecture and software development firm based in Machakos, Kenya. We specialize in secure DevSecOps pipelines, Web3 smart contract integration, business workflow automation, and corporate hardware branding.
+
+## Core Services
+- [Custom Software Development](https://stackvuratechnologies.online/#services): Next.js web applications, client portals, and Supabase databases.
+- [Cloud Architecture & Security](https://stackvuratechnologies.online/#services): AWS EC2 deployments, Docker containerization, and zero-trust VPN networks.
+- [Web3 & Blockchain Protocol](https://stackvuratechnologies.online/#services): Smart contract auditing, zero-knowledge credential systems, and real-world asset (RWA) tokenization.
+- [Enterprise Printing & Branding](https://stackvuratechnologies.online/#pricing): Smart NFC business cards and high-security staff ID badges.
+
+## Case Studies & Infrastructure Blueprints
+- [Infrastructure Playbooks](https://github.com/StackvuraTechnologies/infrastructure-blueprints): Public repository containing our PostgreSQL schemas, Namecheap DNS routing, and CI/CD Vercel pipelines.
+- [NexusRWA Platform](https://stackvuratechnologies.online/#projects): A smart contract bridge linking physical high-value assets to decentralized liquidity pools.
+
+## Contact Information
+- **Phone**: +254 726 396 632
+- **Email**: operation@stackvuratechnologies.online
+- **Location**: Machakos, Kenya
