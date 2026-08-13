@@ -74,30 +74,51 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
   };
     
   const handleSupportSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSupportStatus('submitting');
+  e.preventDefault();
+  setSupportStatus('submitting');
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (user) {
+    // 1. Save the ticket to the Supabase database
+    const { error: dbError } = await supabase.from('support_tickets').insert({
+      client_id: user.id,
+      ticket_type: ticketType,
+      subject: ticketSubject,
+      message: ticketMessage
+    });
     
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (user) {
-      const { error } = await supabase.from('support_tickets').insert({
-        client_id: user.id,
-        ticket_type: ticketType,
-        subject: ticketSubject,
-        message: ticketMessage
+    if (dbError) {
+      setSupportStatus('error');
+      return;
+    } 
+
+    // 2. Trigger the Resend email to the operations inbox
+    try {
+      await fetch('/api/notify-support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user.email,
+          ticketType,
+          ticketSubject,
+          ticketMessage
+        }),
       });
       
-      if (error) {
-        setSupportStatus('error');
-      } else {
-        setSupportStatus('submitted');
-        setTicketType('');
-        setTicketSubject('');
-        setTicketMessage('');
-        setTimeout(() => setSupportStatus('idle'), 4000);
-      }
+      setSupportStatus('submitted');
+      setTicketType('');
+      setTicketSubject('');
+      setTicketMessage('');
+      setTimeout(() => setSupportStatus('idle'), 4000);
+    } catch (emailError) {
+      console.error("Database saved, but email failed to send.");
+      // We still show 'submitted' to the client because the DB captured it
+      setSupportStatus('submitted'); 
+      setTimeout(() => setSupportStatus('idle'), 4000);
     }
-  };
+  }
+};
 
   const handleClose = () => {
     setIsLoggedIn(false);
