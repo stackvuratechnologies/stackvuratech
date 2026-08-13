@@ -57,7 +57,7 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
       options: {
         data: {
           full_name: fullName,
-          company: company, // Storing company as well for future use
+          company: company,
           client_type: clientType
         }
       }
@@ -66,7 +66,6 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
     if (error) {
       setAuthError(error.message);
     } else {
-      // Show success message or ask user to check their email
       setAuthError('Registration successful! Please check your email to confirm your account.');
     }
     
@@ -74,57 +73,55 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
   };
     
   const handleSupportSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setSupportStatus('submitting');
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (user) {
-    // 1. Save the ticket to the Supabase database
-    const { error: dbError } = await supabase.from('support_tickets').insert({
-      client_id: user.id,
-      ticket_type: ticketType,
-      subject: ticketSubject,
-      message: ticketMessage
-    });
+    e.preventDefault();
+    setSupportStatus('submitting');
     
-    if (dbError) {
-      setSupportStatus('error');
-      return;
-    } 
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      // 1. Save the ticket to the Supabase database
+      const { error: dbError } = await supabase.from('support_tickets').insert({
+        client_id: user.id,
+        ticket_type: ticketType,
+        subject: ticketSubject,
+        message: ticketMessage
+      });
+      
+      if (dbError) {
+        setSupportStatus('error');
+        return;
+      } 
 
-    // 2. Trigger the Resend email to the operations inbox
-    // 2. Trigger the Resend email to the operations inbox
-try {
-  const response = await fetch('/api/notify-support', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email: user.email,
-      ticketType,
-      ticketSubject,
-      ticketMessage
-    }),
-  });
-  
-  // Explicitly check for HTTP errors from the backend
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Server rejected the request');
-  }
-  
-  setSupportStatus('submitted');
-  setTicketType('');
-  setTicketSubject('');
-  setTicketMessage('');
-  setTimeout(() => setSupportStatus('idle'), 4000);
-} catch (emailError) {
-  console.error("Email API Failed:", emailError);
-  // Optional: You can change the status here to notify the user, 
-  // or keep it 'submitted' since the DB still captured it.
-  setSupportStatus('error'); 
-  setTimeout(() => setSupportStatus('idle'), 4000);
-}
+      // 2. Trigger the Resend email to the operations inbox
+      try {
+        const response = await fetch('/api/notify-support', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: user.email,
+            ticketType,
+            ticketSubject,
+            ticketMessage
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Server rejected the request');
+        }
+        
+        setSupportStatus('submitted');
+        setTicketType('');
+        setTicketSubject('');
+        setTicketMessage('');
+        setTimeout(() => setSupportStatus('idle'), 4000);
+      } catch (emailError) {
+        console.error("Email API Failed:", emailError);
+        // We still show 'submitted' to the client because the DB captured it
+        setSupportStatus('submitted'); 
+        setTimeout(() => setSupportStatus('idle'), 4000);
+      }
+    }
+  };
 
   const handleClose = () => {
     setIsLoggedIn(false);
