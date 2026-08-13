@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Lock, FileText, Printer, Clock, UserPlus, LifeBuoy, Send, Loader2, Building2, User } from 'lucide-react';
+import { X, Lock, Clock, UserPlus, LifeBuoy, Send, Loader2, Building2, User } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface ClientPortalModalProps {
@@ -51,31 +51,28 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
     setLoading(true);
     setAuthError('');
 
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({ email, password });
-
-    if (signUpError) {
-      setAuthError(signUpError.message);
-      setLoading(false);
-      return;
-    }
-
-    if (authData.user) {
-      const { error: dbError } = await supabase.from('clients').insert({
-        id: authData.user.id,
-        full_name: fullName,
-        company_name: clientType === 'firm' ? company : null,
-        client_type: clientType
-      });
-
-      if (dbError) {
-        setAuthError(dbError.message);
-      } else {
-        setIsLoggedIn(true);
+    const { data, error } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+      options: {
+        data: {
+          full_name: fullName,
+          company: company, // Storing company as well for future use
+          client_type: clientType
+        }
       }
+    });
+
+    if (error) {
+      setAuthError(error.message);
+    } else {
+      // Show success message or ask user to check their email
+      setAuthError('Registration successful! Please check your email to confirm your account.');
     }
+    
     setLoading(false);
   };
-
+    
   const handleSupportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSupportStatus('submitting');
@@ -184,7 +181,7 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
                   <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
                 </div>
                 
-                {authError && <div className="text-red-600 bg-red-50 border border-red-200 p-3 rounded-md text-sm font-semibold">{authError}</div>}
+                {authError && <div className={`p-3 rounded-md text-sm font-semibold ${authError.includes('successful') ? 'text-green-700 bg-green-50 border border-green-200' : 'text-red-600 bg-red-50 border border-red-200'}`}>{authError}</div>}
 
                 <button type="submit" disabled={loading} className="w-full bg-blue-900 text-white font-bold py-3 rounded-md hover:bg-blue-800 transition shadow-md flex justify-center items-center">
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (view === 'login' ? 'Secure Login' : 'Register Account')}
