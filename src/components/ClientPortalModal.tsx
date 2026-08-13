@@ -94,31 +94,37 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
     } 
 
     // 2. Trigger the Resend email to the operations inbox
-    try {
-      await fetch('/api/notify-support', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: user.email,
-          ticketType,
-          ticketSubject,
-          ticketMessage
-        }),
-      });
-      
-      setSupportStatus('submitted');
-      setTicketType('');
-      setTicketSubject('');
-      setTicketMessage('');
-      setTimeout(() => setSupportStatus('idle'), 4000);
-    } catch (emailError) {
-      console.error("Database saved, but email failed to send.");
-      // We still show 'submitted' to the client because the DB captured it
-      setSupportStatus('submitted'); 
-      setTimeout(() => setSupportStatus('idle'), 4000);
-    }
+    // 2. Trigger the Resend email to the operations inbox
+try {
+  const response = await fetch('/api/notify-support', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: user.email,
+      ticketType,
+      ticketSubject,
+      ticketMessage
+    }),
+  });
+  
+  // Explicitly check for HTTP errors from the backend
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Server rejected the request');
   }
-};
+  
+  setSupportStatus('submitted');
+  setTicketType('');
+  setTicketSubject('');
+  setTicketMessage('');
+  setTimeout(() => setSupportStatus('idle'), 4000);
+} catch (emailError) {
+  console.error("Email API Failed:", emailError);
+  // Optional: You can change the status here to notify the user, 
+  // or keep it 'submitted' since the DB still captured it.
+  setSupportStatus('error'); 
+  setTimeout(() => setSupportStatus('idle'), 4000);
+}
 
   const handleClose = () => {
     setIsLoggedIn(false);
