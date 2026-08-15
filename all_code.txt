@@ -28,6 +28,261 @@ export default function robots(): MetadataRoute.Robots {
     sitemap: 'https://stackvuratechnologies.online/sitemap.xml',
   };
 }
+==> /home/kariuki/moses-mwihia-portfolio/src/app/dashboard/vault/page.tsx <==
+'use client';
+
+import { useEffect, useState } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
+
+export default function EnterpriseVault() {
+  const [vaultData, setVaultData] = useState({
+    blueprints: [] as any[],
+    branding: [] as any[],
+    compliance: [] as any[]
+  });
+  const [loading, setLoading] = useState(true);
+  
+  // Modern SSR Browser Client
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  useEffect(() => {
+    async function fetchCategorizedAssets() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Helper function to fetch files from a specific subfolder
+      const getFiles = async (folder: string) => {
+        const { data } = await supabase.storage
+          .from('client-vault')
+          .list(`${user.id}/${folder}`);
+        return data ? data.filter(file => file.name !== '.emptyFolderPlaceholder') : [];
+      };
+
+      // Fetch all three categories concurrently for maximum speed
+      const [blueprints, branding, compliance] = await Promise.all([
+        getFiles('blueprints'),
+        getFiles('branding'),
+        getFiles('compliance')
+      ]);
+
+      setVaultData({ blueprints, branding, compliance });
+      setLoading(false);
+    }
+
+    fetchCategorizedAssets();
+  }, [supabase]);
+
+  // Use a signed URL to share a file for a fixed amount of time.
+  const downloadAsset = async (folder: string, fileName: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Generates a secure, temporary link valid for 60 seconds.
+    const { data, error } = await supabase.storage
+      .from('client-vault')
+      .createSignedUrl(`${user.id}/${folder}/${fileName}`, 60); 
+
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, '_blank');
+    }
+  };
+
+  // UI Component for rendering a specific category block
+  const CategoryBlock = ({ title, description, files, folder }: { title: string, description: string, files: any[], folder: string }) => (
+    <div className="mb-8 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+      <div className="bg-slate-50 border-b border-slate-200 p-5">
+        <h2 className="text-lg font-bold text-slate-800">{title}</h2>
+        <p className="text-sm text-slate-500 mt-1">{description}</p>
+      </div>
+      <div className="p-5">
+        {files.length === 0 ? (
+          <p className="text-sm text-slate-400 italic">No assets available in this category.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {files.map((file) => (
+              <div key={file.name} className="flex justify-between items-center p-4 bg-slate-50 rounded-lg border border-slate-100 hover:border-slate-300 transition">
+                <div>
+                  <p className="font-medium text-slate-700">{file.name}</p>
+                  <p className="text-xs text-slate-400 uppercase mt-1">
+                    {(file.metadata?.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+                <button 
+                  onClick={() => downloadAsset(folder, file.name)}
+                  className="px-4 py-2 bg-[#0F172A] text-white text-sm font-medium rounded hover:bg-slate-700 transition"
+                >
+                  Download
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="max-w-5xl mx-auto p-8">
+      <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Secure Asset Vault</h1>
+      <p className="text-slate-500 mb-8">Encrypted, centralized repository for your project deliverables.</p>
+
+      {loading ? (
+        <div className="flex animate-pulse space-x-4">
+          <div className="h-10 bg-slate-200 rounded w-1/4"></div>
+        </div>
+      ) : (
+        <>
+          <CategoryBlock 
+            title="Infrastructure Blueprints" 
+            description="Server architecture diagrams, container configurations, and mesh network details."
+            files={vaultData.blueprints} 
+            folder="blueprints"
+          />
+          <CategoryBlock 
+            title="Branding Kits" 
+            description="High-resolution logos, vector graphics, and identity assets."
+            files={vaultData.branding} 
+            folder="branding"
+          />
+          <CategoryBlock 
+            title="Compliance & Security" 
+            description="Vulnerability scans, DevSecOps reports, and smart contract audit PDFs."
+            files={vaultData.compliance} 
+            folder="compliance"
+          />
+        </>
+      )}
+    </div>
+  );
+}
+==> /home/kariuki/moses-mwihia-portfolio/src/app/dashboard/admin/upload/page.tsx <==
+'use client';
+import { useState } from 'react';
+
+export default function AdminVaultUpload() {
+  const [adminSecret, setAdminSecret] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [category, setCategory] = useState('blueprints');
+  const [file, setFile] = useState<File | null>(null);
+  const [status, setStatus] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminSecret || !clientId || !file) {
+      setStatus('Please provide the Admin Secret, a Client ID, and select a file.');
+      return;
+    }
+
+    setIsUploading(true);
+    setStatus('Encrypting & Uploading...');
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('clientId', clientId);
+    formData.append('category', category);
+
+    try {
+      const response = await fetch('/api/admin/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${adminSecret}` // Injects your password into the secure header
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed due to a server error.');
+      }
+
+      setStatus('Asset successfully secured in client vault.');
+      setFile(null); 
+      setAdminSecret(''); // Clear the secret for security
+      
+    } catch (err: any) {
+      setStatus(`Upload failed: ${err.message}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto p-8">
+      <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Admin: Dispatch Deliverables</h1>
+      <p className="text-slate-500 mb-8">Securely push assets directly into client enterprise vaults.</p>
+
+      <form onSubmit={handleUpload} className="space-y-6 bg-white p-6 border border-slate-200 rounded-xl shadow-sm">
+        
+        {/* Admin Secret Input */}
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-1">Admin Upload Secret</label>
+          <input 
+            type="password" 
+            placeholder="Enter the master upload password"
+            value={adminSecret}
+            onChange={(e) => setAdminSecret(e.target.value)}
+            className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-1">Target Client (User ID)</label>
+          <input 
+            type="text" 
+            placeholder="e.g. 9048a689-d3fd-4f60-9e89-31e986640370"
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-1">Asset Category</label>
+          <select 
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
+          >
+            <option value="blueprints">Infrastructure Blueprints</option>
+            <option value="branding">Branding Kits</option>
+            <option value="compliance">Compliance & Security</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-1">Select File</label>
+          <input 
+            type="file" 
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            className="w-full p-2 border border-slate-300 rounded text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+            required
+          />
+        </div>
+
+        <button 
+          type="submit" 
+          disabled={isUploading}
+          className={`w-full py-3 rounded font-bold text-white transition ${isUploading ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#0F172A] hover:bg-slate-700'}`}
+        >
+          {isUploading ? 'Encrypting & Uploading...' : 'Dispatch to Client Vault'}
+        </button>
+
+        {status && (
+          <div className={`p-4 rounded text-sm font-medium ${status.includes('failed') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+            {status}
+          </div>
+        )}
+      </form>
+    </div>
+  );
+}
 ==> /home/kariuki/moses-mwihia-portfolio/src/app/page.tsx <==
 'use client';
 
@@ -600,30 +855,40 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ];
 }
 
-==> /home/kariuki/moses-mwihia-portfolio/src/app/api/notify-support/route.ts <==
+==> /home/kariuki/moses-mwihia-portfolio/src/app/api/notify/route.ts <==
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
-// Initialize Resend with your API Key (Ensure this is in your .env.local file)
+// Initialize the Resend client
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
   try {
-    const { email, ticketType, ticketSubject, ticketMessage } = await request.json();
+    const { email, name, message } = await request.json();
+
+    // Validate the incoming payload
+    if (!email || !name || !message) {
+      return NextResponse.json(
+        { error: 'Missing required fields: email, name, or message' },
+        { status: 400 }
+      );
+    }
 
     const { data, error } = await resend.emails.send({
-      from: 'StackVura System <admin@stackvuratechnologies.online>',
-      to: 'operation@stackvuratechnologies.online', // Your central operations inbox
-      subject: `New Client Ticket [${ticketType.toUpperCase()}]: ${ticketSubject}`,
+      from: 'StackVura Technologies <admin@stackvuratechnologies.online>',
+      to: email, // Sending directly to the client's provided email
+      subject: `Project Update for ${name}`,
       html: `
-        <div style="font-family: sans-serif; color: #0F172A;">
-          <h2>New Support Ticket Logged</h2>
-          <p><strong>Client Email:</strong> ${email}</p>
-          <p><strong>Category:</strong> ${ticketType}</p>
-          <hr />
-          <h3>Message:</h3>
-          <p style="background: #F8FAFC; padding: 15px; border-radius: 5px;">
-            ${ticketMessage}
+        <div style="font-family: sans-serif; color: #0F172A; max-w: 600px; margin: 0 auto; padding: 20px; border: 1px solid #E2E8F0; border-radius: 8px;">
+          <h2 style="color: #1E3A8A; margin-bottom: 20px;">Project Update</h2>
+          <p>Hello <strong>${name}</strong>,</p>
+          <div style="background-color: #F8FAFC; padding: 15px; border-left: 4px solid #1E3A8A; margin: 20px 0; border-radius: 4px; line-height: 1.6;">
+            ${message.replace(/\n/g, '<br />')}
+          </div>
+          <p style="margin-top: 30px; font-size: 14px; color: #64748B;">
+            Best regards,<br/>
+            <strong>The StackVura Engineering Team</strong><br/>
+            <a href="https://stackvuratechnologies.online" style="color: #1E3A8A; text-decoration: none;">stackvuratechnologies.online</a>
           </p>
         </div>
       `,
@@ -633,9 +898,122 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, data });
   } catch (err) {
-    return NextResponse.json({ error: 'Failed to send notification' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error while dispatching email.' },
+      { status: 500 }
+    );
+  }
+}
+==> /home/kariuki/moses-mwihia-portfolio/src/app/api/notify-support/route.ts <==
+import { NextResponse } from 'next/server';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+export async function POST(request: Request) {
+  try {
+    const { email, ticketType, ticketSubject, ticketMessage } = await request.json();
+
+    // ---------------------------------------------------------
+    // 1. DISPATCH WHATSAPP NOTIFICATION (CallMeBot)
+    // ---------------------------------------------------------
+    // Format the text using WhatsApp's markdown (* for bold)
+    const whatsappText = ` *New StackVura Ticket* \n\n*Client:* ${email}\n*Type:* ${ticketType}\n*Subject:* ${ticketSubject}\n\n*Message:*\n${ticketMessage}`;
+    
+    // URL-encode the text so spaces and special characters transmit safely over a GET request
+    const encodedText = encodeURIComponent(whatsappText);
+    
+    // Construct the endpoint using your environment variables
+    const callMeBotUrl = `https://api.callmebot.com/whatsapp.php?phone=${process.env.ADMIN_WHATSAPP_NUMBER}&text=${encodedText}&apikey=${process.env.CALLMEBOT_API_KEY}`;
+
+    const whatsappPromise = fetch(callMeBotUrl);
+
+    // ---------------------------------------------------------
+    // 2. DISPATCH RESEND EMAIL
+    // ---------------------------------------------------------
+    const emailPromise = resend.emails.send({
+      from: 'StackVura System <admin@stackvuratechnologies.online>',
+      to: 'operation@stackvuratechnologies.online', 
+      subject: `New Client Ticket [${ticketType.toUpperCase()}]: ${ticketSubject}`,
+      html: `
+        <div style="font-family: sans-serif; color: #0F172A;">
+          <h2>New Support Ticket</h2>
+          <p><strong>Client:</strong> ${email}</p>
+          <p><strong>Category:</strong> ${ticketType}</p>
+          <hr />
+          <h3>Message:</h3>
+          <p style="background: #F8FAFC; padding: 15px; border-radius: 5px;">${ticketMessage}</p>
+        </div>
+      `,
+    });
+
+    // Execute both network requests concurrently for maximum speed
+    const [whatsappResult, emailResult] = await Promise.all([whatsappPromise, emailPromise]);
+
+    // Log any silent failures to your Vercel console for easier debugging
+    if (!whatsappResult.ok) {
+      console.error("WhatsApp API Error: Status", whatsappResult.status);
+    }
+    if (emailResult.error) {
+       console.error("Resend API Error:", emailResult.error.message);
+    }
+
+    return NextResponse.json({ success: true });
+    
+  } catch (err) {
+    console.error("Critical Server Error:", err);
+    return NextResponse.json({ error: 'Failed to process notifications' }, { status: 500 });
+  }
+}
+==> /home/kariuki/moses-mwihia-portfolio/src/app/api/upload/admin/route.ts <==
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+export async function POST(req: NextRequest) {
+  try {
+    // 1. Strict Custom Password Check
+    const authHeader = req.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.ADMIN_UPLOAD_SECRET}`) {
+      return NextResponse.json({ error: 'Unauthorized: Invalid Admin Secret.' }, { status: 403 });
+    }
+
+    // 2. Parse the incoming form data
+    const formData = await req.formData();
+    const file = formData.get('file') as File;
+    const clientId = formData.get('clientId') as string;
+    const category = formData.get('category') as string;
+
+    if (!file || !clientId || !category) {
+      return NextResponse.json({ error: 'Missing required upload fields.' }, { status: 400 });
+    }
+
+    // 3. Initialize the God-Mode Supabase Admin Client
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // 4. Convert file to buffer and force the upload (bypassing RLS)
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const filePath = `${clientId}/${category}/${file.name}`;
+
+    const { error } = await supabaseAdmin.storage
+      .from('client-vault')
+      .upload(filePath, buffer, {
+        contentType: file.type,
+        upsert: true
+      });
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, message: 'Asset secured in vault.' });
+
+  } catch (error: any) {
+    console.error('Vault Upload Error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 ==> /home/kariuki/moses-mwihia-portfolio/src/components/FAQ.tsx <==
@@ -815,7 +1193,7 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
       options: {
         data: {
           full_name: fullName,
-          company: company, // Storing company as well for future use
+          company: company,
           client_type: clientType
         }
       }
@@ -824,7 +1202,6 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
     if (error) {
       setAuthError(error.message);
     } else {
-      // Show success message or ask user to check their email
       setAuthError('Registration successful! Please check your email to confirm your account.');
     }
     
@@ -832,51 +1209,55 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
   };
     
   const handleSupportSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setSupportStatus('submitting');
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (user) {
-    // 1. Save the ticket to the Supabase database
-    const { error: dbError } = await supabase.from('support_tickets').insert({
-      client_id: user.id,
-      ticket_type: ticketType,
-      subject: ticketSubject,
-      message: ticketMessage
-    });
+    e.preventDefault();
+    setSupportStatus('submitting');
     
-    if (dbError) {
-      setSupportStatus('error');
-      return;
-    } 
-
-    // 2. Trigger the Resend email to the operations inbox
-    try {
-      await fetch('/api/notify-support', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: user.email,
-          ticketType,
-          ticketSubject,
-          ticketMessage
-        }),
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      // 1. Save the ticket to the Supabase database
+      const { error: dbError } = await supabase.from('support_tickets').insert({
+        client_id: user.id,
+        ticket_type: ticketType,
+        subject: ticketSubject,
+        message: ticketMessage
       });
       
-      setSupportStatus('submitted');
-      setTicketType('');
-      setTicketSubject('');
-      setTicketMessage('');
-      setTimeout(() => setSupportStatus('idle'), 4000);
-    } catch (emailError) {
-      console.error("Database saved, but email failed to send.");
-      // We still show 'submitted' to the client because the DB captured it
-      setSupportStatus('submitted'); 
-      setTimeout(() => setSupportStatus('idle'), 4000);
+      if (dbError) {
+        setSupportStatus('error');
+        return;
+      } 
+
+      // 2. Trigger the Resend email to the operations inbox
+      try {
+        const response = await fetch('/api/notify-support', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: user.email,
+            ticketType,
+            ticketSubject,
+            ticketMessage
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Server rejected the request');
+        }
+        
+        setSupportStatus('submitted');
+        setTicketType('');
+        setTicketSubject('');
+        setTicketMessage('');
+        setTimeout(() => setSupportStatus('idle'), 4000);
+      } catch (emailError) {
+        console.error("Email API Failed:", emailError);
+        // We still show 'submitted' to the client because the DB captured it
+        setSupportStatus('submitted'); 
+        setTimeout(() => setSupportStatus('idle'), 4000);
+      }
     }
-  }
-};
+  };
 
   const handleClose = () => {
     setIsLoggedIn(false);

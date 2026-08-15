@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Lock, Clock, UserPlus, LifeBuoy, Send, Loader2, Building2, User } from 'lucide-react';
+import { X, Lock, Clock, UserPlus, LifeBuoy, Send, Loader2, Building2, User, FolderLock } from 'lucide-react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
 interface ClientPortalModalProps {
@@ -79,7 +80,6 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
     const { data: { user } } = await supabase.auth.getUser();
     
     if (user) {
-      // 1. Save the ticket to the Supabase database
       const { error: dbError } = await supabase.from('support_tickets').insert({
         client_id: user.id,
         ticket_type: ticketType,
@@ -92,7 +92,6 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
         return;
       } 
 
-      // 2. Trigger the Resend email to the operations inbox
       try {
         const response = await fetch('/api/notify-support', {
           method: 'POST',
@@ -116,7 +115,6 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
         setTimeout(() => setSupportStatus('idle'), 4000);
       } catch (emailError) {
         console.error("Email API Failed:", emailError);
-        // We still show 'submitted' to the client because the DB captured it
         setSupportStatus('submitted'); 
         setTimeout(() => setSupportStatus('idle'), 4000);
       }
@@ -246,13 +244,31 @@ export default function ClientPortalModal({ isOpen, onClose }: ClientPortalModal
                     <p className="text-sm text-green-600 font-medium mt-1">Status: Active Client Dashboard</p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="bg-slate-50 p-6 rounded-xl border border-gray-200 shadow-sm">
-                      <div className="flex items-center space-x-2 text-blue-900 mb-3">
-                        <Clock className="w-5 h-5" />
-                        <span className="text-sm font-bold uppercase tracking-wide">Active Build</span>
+                    {/* Progress Card */}
+                    <div className="bg-slate-50 p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center space-x-2 text-blue-900 mb-3">
+                          <Clock className="w-5 h-5" />
+                          <span className="text-sm font-bold uppercase tracking-wide">Active Build</span>
+                        </div>
+                        <h4 className="text-slate-900 font-bold text-lg">Requirements Analysis</h4>
+                        <p className="text-sm text-slate-600 mt-2">Progress: Initializing (Awaiting Specs)</p>
                       </div>
-                      <h4 className="text-slate-900 font-bold text-lg">Requirements Analysis</h4>
-                      <p className="text-sm text-slate-600 mt-2">Progress: Initializing (Awaiting Specs)</p>
+                    </div>
+                    
+                    {/* NEW: Secure Vault Card */}
+                    <div className="bg-blue-900 p-6 rounded-xl border border-blue-800 shadow-sm flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center space-x-2 text-yellow-500 mb-3">
+                          <FolderLock className="w-5 h-5" />
+                          <span className="text-sm font-bold uppercase tracking-wide">Deliverables</span>
+                        </div>
+                        <h4 className="text-white font-bold text-lg">Secure Asset Vault</h4>
+                        <p className="text-sm text-blue-200 mt-2">Access your encrypted architecture blueprints, branding kits, and audit reports.</p>
+                      </div>
+                      <Link href="/dashboard/vault" onClick={handleClose} className="mt-6 w-full block bg-white text-blue-900 font-bold py-2.5 rounded text-center hover:bg-slate-100 transition shadow">
+                        Open Vault
+                      </Link>
                     </div>
                   </div>
                 </>
