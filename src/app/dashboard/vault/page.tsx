@@ -1,11 +1,13 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 
 export default function EnterpriseVault() {
   const [vaultData, setVaultData] = useState({
-    blueprints: [],
-    branding: [],
-    compliance: []
+    blueprints: [] as any[],
+    branding: [] as any[],
+    compliance: [] as any[]
   });
   const [loading, setLoading] = useState(true);
   
@@ -15,71 +17,112 @@ export default function EnterpriseVault() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  
   useEffect(() => {
-    async function loadClientFiles() {
-      // 1. Get the current logged-in enterprise client
+    async function fetchCategorizedAssets() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 2. Fetch files securely from their dedicated folder in the client-vault bucket
-      const { data, error } = await supabase.storage
-        .from('client-vault')
-        .list(user.id); // Looks inside the folder named after their User ID
+      // Helper function to fetch files from a specific subfolder
+      const getFiles = async (folder: string) => {
+        const { data } = await supabase.storage
+          .from('client-vault')
+          .list(`${user.id}/${folder}`);
+        return data ? data.filter(file => file.name !== '.emptyFolderPlaceholder') : [];
+      };
 
-      if (data) {
-        // Filter out any hidden system files
-        const validFiles = data.filter(file => file.name !== '.emptyFolderPlaceholder');
-        setFiles(validFiles);
-      }
+      // Fetch all three categories concurrently for maximum speed
+      const [blueprints, branding, compliance] = await Promise.all([
+        getFiles('blueprints'),
+        getFiles('branding'),
+        getFiles('compliance')
+      ]);
+
+      setVaultData({ blueprints, branding, compliance });
       setLoading(false);
     }
 
-    loadClientFiles();
+    fetchCategorizedAssets();
   }, [supabase]);
 
-  const downloadFile = async (fileName: string) => {
+  // Use a signed URL to share a file for a fixed amount of time.
+  const downloadAsset = async (folder: string, fileName: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 3. Generate a secure, short-lived download link
+    // Generates a secure, temporary link valid for 60 seconds.
     const { data, error } = await supabase.storage
       .from('client-vault')
-      .createSignedUrl(`${user.id}/${fileName}`, 60); // URL expires in 60 seconds
+      .createSignedUrl(`${user.id}/${folder}/${fileName}`, 60); 
 
     if (data?.signedUrl) {
       window.open(data.signedUrl, '_blank');
     }
   };
 
+  // UI Component for rendering a specific category block
+  const CategoryBlock = ({ title, description, files, folder }: { title: string, description: string, files: any[], folder: string }) => (
+    <div className="mb-8 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+      <div className="bg-slate-50 border-b border-slate-200 p-5">
+        <h2 className="text-lg font-bold text-slate-800">{title}</h2>
+        <p className="text-sm text-slate-500 mt-1">{description}</p>
+      </div>
+      <div className="p-5">
+        {files.length === 0 ? (
+          <p className="text-sm text-slate-400 italic">No assets available in this category.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {files.map((file) => (
+              <div key={file.name} className="flex justify-between items-center p-4 bg-slate-50 rounded-lg border border-slate-100 hover:border-slate-300 transition">
+                <div>
+                  <p className="font-medium text-slate-700">{file.name}</p>
+                  <p className="text-xs text-slate-400 uppercase mt-1">
+                    {(file.metadata?.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+                <button 
+                  onClick={() => downloadAsset(folder, file.name)}
+                  className="px-4 py-2 bg-[#0F172A] text-white text-sm font-medium rounded hover:bg-slate-700 transition"
+                >
+                  Download
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Secure Asset & Deliverables Vault</h1>
-      
+    <div className="max-w-5xl mx-auto p-8">
+      <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Secure Asset Vault</h1>
+      <p className="text-slate-500 mb-8">Encrypted, centralized repository for your project deliverables.</p>
+
       {loading ? (
-        <p className="text-slate-500">Decrypting vault contents...</p>
-      ) : files.length === 0 ? (
-        <div className="bg-slate-50 p-6 rounded border border-slate-200">
-          <p className="text-slate-600">No deliverables have been uploaded to your vault yet.</p>
+        <div className="flex animate-pulse space-x-4">
+          <div className="h-10 bg-slate-200 rounded w-1/4"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {files.map((file) => (
-            <div key={file.name} className="p-4 border rounded-lg bg-white shadow-sm flex justify-between items-center">
-              <div>
-                <p className="font-semibold text-slate-700">{file.name}</p>
-                {/* File size in MB */}
-                <p className="text-sm text-slate-500">{(file.metadata?.size / 1024 / 1024).toFixed(2)} MB</p>
-              </div>
-              <button 
-                onClick={() => downloadFile(file.name)}
-                className="bg-[#0F172A] text-white px-4 py-2 rounded hover:bg-slate-700 transition"
-              >
-                Download
-              </button>
-            </div>
-          ))}
-        </div>
+        <>
+          <CategoryBlock 
+            title="Infrastructure Blueprints" 
+            description="Server architecture diagrams, container configurations, and mesh network details."
+            files={vaultData.blueprints} 
+            folder="blueprints"
+          />
+          <CategoryBlock 
+            title="Branding Kits" 
+            description="High-resolution logos, vector graphics, and identity assets."
+            files={vaultData.branding} 
+            folder="branding"
+          />
+          <CategoryBlock 
+            title="Compliance & Security" 
+            description="Vulnerability scans, DevSecOps reports, and smart contract audit PDFs."
+            files={vaultData.compliance} 
+            folder="compliance"
+          />
+        </>
       )}
     </div>
   );
