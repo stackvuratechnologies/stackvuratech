@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Send, Shield, Loader2, Lock, Database, Plus, Trash2, Settings, CheckCircle2, Edit2, Save, X as CloseIcon } from 'lucide-react';
+import { Send, Shield, Loader2, Lock, Database, Plus, Trash2, Settings, CheckCircle2, Edit2, Save, X as CloseIcon, UploadCloud } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
@@ -9,7 +9,7 @@ export default function AdminDashboard() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [passkey, setPasskey] = useState('');
   const [authError, setAuthError] = useState(false);
-  const [adminView, setAdminView] = useState<'dispatch' | 'services' | 'settings'>('dispatch');
+  const [adminView, setAdminView] = useState<'dispatch' | 'services' | 'settings' | 'vault'>('dispatch');
 
   // Email Dispatch State
   const [email, setEmail] = useState('');
@@ -23,8 +23,6 @@ export default function AdminDashboard() {
   const [servicePrice, setServicePrice] = useState('');
   const [serviceDesc, setServiceDesc] = useState('');
   const [dbStatus, setDbStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
-
-  // Service CMS Edit State
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState('');
@@ -36,6 +34,14 @@ export default function AdminDashboard() {
   const [contactEmail, setContactEmail] = useState('');
   const [contactLocation, setContactLocation] = useState('');
   const [settingsStatus, setSettingsStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+
+  // Vault Dispatch State
+  const [adminSecret, setAdminSecret] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [category, setCategory] = useState('blueprints');
+  const [file, setFile] = useState<File | null>(null);
+  const [vaultStatus, setVaultStatus] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (isAuthorized) {
@@ -123,9 +129,7 @@ export default function AdminDashboard() {
 
   const handleSaveEdit = async (id: number) => {
     await supabase.from('pricing_services').update({
-      service_name: editName,
-      price: editPrice,
-      description: editDesc
+      service_name: editName, price: editPrice, description: editDesc
     }).eq('id', id);
     setEditingId(null);
     fetchServices();
@@ -134,21 +138,53 @@ export default function AdminDashboard() {
   const handleUpdateSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSettingsStatus('saving');
-    
     const updates = [
       { setting_key: 'github_url', setting_value: githubUrl },
       { setting_key: 'contact_phone', setting_value: contactPhone },
       { setting_key: 'contact_email', setting_value: contactEmail },
       { setting_key: 'contact_location', setting_value: contactLocation }
     ];
-
     const { error } = await supabase.from('site_settings').upsert(updates);
-    
-    if (error) {
-      setSettingsStatus('error');
-    } else {
+    if (error) setSettingsStatus('error');
+    else {
       setSettingsStatus('success');
       setTimeout(() => setSettingsStatus('idle'), 4000);
+    }
+  };
+
+  const handleVaultUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminSecret || !clientId || !file) {
+      setVaultStatus('Please provide the Admin Secret, a Client ID, and select a file.');
+      return;
+    }
+
+    setIsUploading(true);
+    setVaultStatus('Encrypting & Uploading...');
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('clientId', clientId);
+    formData.append('category', category);
+
+    try {
+      const response = await fetch('/api/admin/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${adminSecret}` },
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Upload failed due to a server error.');
+
+      setVaultStatus('Asset successfully secured in client vault.');
+      setFile(null); 
+      setAdminSecret('');
+      
+    } catch (err: any) {
+      setVaultStatus(`Upload failed: ${err.message}`);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -202,6 +238,9 @@ export default function AdminDashboard() {
             <button onClick={() => setAdminView('settings')} className={`font-bold text-sm pb-2 border-b-2 transition-colors flex items-center space-x-2 ${adminView === 'settings' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500 hover:text-blue-900'}`}>
               <Settings className="w-4 h-4" /><span>Global Config</span>
             </button>
+            <button onClick={() => setAdminView('vault')} className={`font-bold text-sm pb-2 border-b-2 transition-colors flex items-center space-x-2 ${adminView === 'vault' ? 'border-blue-900 text-blue-900' : 'border-transparent text-slate-500 hover:text-blue-900'}`}>
+              <UploadCloud className="w-4 h-4" /><span>Asset Vault Dispatch</span>
+            </button>
           </div>
 
           {adminView === 'dispatch' && (
@@ -233,71 +272,71 @@ export default function AdminDashboard() {
           )}
 
           {adminView === 'services' && (
-            <div className="animate-in fade-in duration-300 grid grid-cols-1 lg:grid-cols-2 gap-12">
-              <div>
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-slate-900">Manage Core Services</h2>
-                  <p className="text-sm text-slate-500 mt-1">Push new services and pricing tiers directly to the database.</p>
-                </div>
-                <form onSubmit={handleAddService} className="space-y-5 bg-slate-50 p-6 border border-gray-200 rounded-xl">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700">Service / Tier Name</label>
-                    <input type="text" required value={serviceName} onChange={(e) => setServiceName(e.target.value)} placeholder="e.g. Enterprise Operations" className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700">Base Price</label>
-                    <input type="text" required value={servicePrice} onChange={(e) => setServicePrice(e.target.value)} placeholder="e.g. KES 65,000" className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700">Service Description</label>
-                    <textarea required value={serviceDesc} onChange={(e) => setServiceDesc(e.target.value)} rows={3} className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none"></textarea>
-                  </div>
-                  {dbStatus === 'success' && <div className="bg-green-50 text-green-700 border border-green-200 p-4 rounded-md text-sm font-bold">Service saved to database.</div>}
-                  <button type="submit" disabled={dbStatus === 'saving'} className="w-full bg-blue-900 text-white font-bold py-3 rounded-md hover:bg-blue-800 transition shadow-md flex justify-center items-center space-x-2">
-                    {dbStatus === 'saving' ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Plus className="w-4 h-4" /><span>Add Service</span></>}
-                  </button>
-                </form>
-              </div>
-              
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 mb-4">Active Services in Production</h3>
-                <div className="space-y-4">
-                  {services.length === 0 ? (
-                    <p className="text-sm text-slate-500 italic">No custom services found. Add one to overwrite default pricing.</p>
-                  ) : (
-                    services.map((service) => (
-                      <div key={service.id} className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
-                        {editingId === service.id ? (
-                          <div className="space-y-3">
-                            <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-2 text-sm text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
-                            <input type="text" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-2 text-sm text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
-                            <div className="flex space-x-2 mt-2">
-                              <button onClick={() => handleSaveEdit(service.id)} className="flex-1 bg-green-600 text-white text-xs font-bold py-2 rounded-md hover:bg-green-700 transition flex items-center justify-center space-x-1"><Save className="w-3 h-3" /><span>Save</span></button>
-                              <button onClick={() => setEditingId(null)} className="flex-1 bg-gray-200 text-slate-700 text-xs font-bold py-2 rounded-md hover:bg-gray-300 transition flex items-center justify-center space-x-1"><CloseIcon className="w-3 h-3" /><span>Cancel</span></button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h4 className="font-bold text-blue-900 text-sm">{service.service_name}</h4>
-                              <p className="text-xs text-slate-500 mt-1">{service.price}</p>
-                            </div>
-                            <div className="flex space-x-2">
-                              <button onClick={() => startEdit(service)} className="text-slate-400 hover:text-blue-600 transition p-1">
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <button onClick={() => handleDeleteService(service.id)} className="text-slate-400 hover:text-red-600 transition p-1">
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
+             <div className="animate-in fade-in duration-300 grid grid-cols-1 lg:grid-cols-2 gap-12">
+               <div>
+                 <div className="mb-6">
+                   <h2 className="text-2xl font-bold text-slate-900">Manage Core Services</h2>
+                   <p className="text-sm text-slate-500 mt-1">Push new services and pricing tiers directly to the database.</p>
+                 </div>
+                 <form onSubmit={handleAddService} className="space-y-5 bg-slate-50 p-6 border border-gray-200 rounded-xl">
+                   <div className="space-y-2">
+                     <label className="text-sm font-semibold text-slate-700">Service / Tier Name</label>
+                     <input type="text" required value={serviceName} onChange={(e) => setServiceName(e.target.value)} placeholder="e.g. Enterprise Operations" className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-sm font-semibold text-slate-700">Base Price</label>
+                     <input type="text" required value={servicePrice} onChange={(e) => setServicePrice(e.target.value)} placeholder="e.g. KES 65,000" className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-sm font-semibold text-slate-700">Service Description</label>
+                     <textarea required value={serviceDesc} onChange={(e) => setServiceDesc(e.target.value)} rows={3} className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none"></textarea>
+                   </div>
+                   {dbStatus === 'success' && <div className="bg-green-50 text-green-700 border border-green-200 p-4 rounded-md text-sm font-bold">Service saved to database.</div>}
+                   <button type="submit" disabled={dbStatus === 'saving'} className="w-full bg-blue-900 text-white font-bold py-3 rounded-md hover:bg-blue-800 transition shadow-md flex justify-center items-center space-x-2">
+                     {dbStatus === 'saving' ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Plus className="w-4 h-4" /><span>Add Service</span></>}
+                   </button>
+                 </form>
+               </div>
+               
+               <div>
+                 <h3 className="text-lg font-bold text-slate-900 mb-4">Active Services in Production</h3>
+                 <div className="space-y-4">
+                   {services.length === 0 ? (
+                     <p className="text-sm text-slate-500 italic">No custom services found. Add one to overwrite default pricing.</p>
+                   ) : (
+                     services.map((service) => (
+                       <div key={service.id} className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+                         {editingId === service.id ? (
+                           <div className="space-y-3">
+                             <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-2 text-sm text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                             <input type="text" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-2 text-sm text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                             <div className="flex space-x-2 mt-2">
+                               <button onClick={() => handleSaveEdit(service.id)} className="flex-1 bg-green-600 text-white text-xs font-bold py-2 rounded-md hover:bg-green-700 transition flex items-center justify-center space-x-1"><Save className="w-3 h-3" /><span>Save</span></button>
+                               <button onClick={() => setEditingId(null)} className="flex-1 bg-gray-200 text-slate-700 text-xs font-bold py-2 rounded-md hover:bg-gray-300 transition flex items-center justify-center space-x-1"><CloseIcon className="w-3 h-3" /><span>Cancel</span></button>
+                             </div>
+                           </div>
+                         ) : (
+                           <div className="flex justify-between items-start">
+                             <div>
+                               <h4 className="font-bold text-blue-900 text-sm">{service.service_name}</h4>
+                               <p className="text-xs text-slate-500 mt-1">{service.price}</p>
+                             </div>
+                             <div className="flex space-x-2">
+                               <button onClick={() => startEdit(service)} className="text-slate-400 hover:text-blue-600 transition p-1">
+                                 <Edit2 className="w-4 h-4" />
+                               </button>
+                               <button onClick={() => handleDeleteService(service.id)} className="text-slate-400 hover:text-red-600 transition p-1">
+                                 <Trash2 className="w-4 h-4" />
+                               </button>
+                             </div>
+                           </div>
+                         )}
+                       </div>
+                     ))
+                   )}
+                 </div>
+               </div>
+             </div>
           )}
 
           {adminView === 'settings' && (
@@ -334,6 +373,78 @@ export default function AdminDashboard() {
                 <button type="submit" disabled={settingsStatus === 'saving'} className="bg-blue-900 text-white font-bold py-3 px-8 rounded-md hover:bg-blue-800 transition shadow-md flex items-center space-x-2">
                   {settingsStatus === 'saving' ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Settings className="w-4 h-4" /><span>Update Global Layout</span></>}
                 </button>
+              </form>
+            </div>
+          )}
+
+          {adminView === 'vault' && (
+            <div className="animate-in fade-in duration-300">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900">Admin: Dispatch Deliverables</h2>
+                <p className="text-sm text-slate-500 mt-1">Securely push assets directly into client enterprise vaults via server-side verification.</p>
+              </div>
+
+              <form onSubmit={handleVaultUpload} className="space-y-6 max-w-2xl bg-slate-50 p-6 border border-gray-200 rounded-xl">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Admin Upload Secret</label>
+                  <input 
+                    type="password" 
+                    placeholder="Enter the master upload password"
+                    value={adminSecret}
+                    onChange={(e) => setAdminSecret(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Target Client (User ID)</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. 9048a689-d3fd-4f60-9e89-31e986640370"
+                    value={clientId}
+                    onChange={(e) => setClientId(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Asset Category</label>
+                  <select 
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
+                  >
+                    <option value="blueprints">Infrastructure Blueprints</option>
+                    <option value="branding">Branding Kits</option>
+                    <option value="compliance">Compliance & Security</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Select File</label>
+                  <input 
+                    type="file" 
+                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    className="w-full p-2 border border-slate-300 rounded text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+                    required
+                  />
+                </div>
+
+                <button 
+                  type="submit" 
+                  disabled={isUploading}
+                  className={`w-full py-3 rounded font-bold text-white transition ${isUploading ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#0F172A] hover:bg-slate-700'}`}
+                >
+                  {isUploading ? 'Encrypting & Uploading...' : 'Dispatch to Client Vault'}
+                </button>
+
+                {vaultStatus && (
+                  <div className={`p-4 rounded text-sm font-medium ${vaultStatus.includes('failed') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                    {vaultStatus}
+                  </div>
+                )}
               </form>
             </div>
           )}
