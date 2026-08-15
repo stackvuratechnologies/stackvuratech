@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Send, Shield, Loader2, Lock, Database, Plus, Trash2, Settings, CheckCircle2, Edit2, Save, X as CloseIcon, UploadCloud, Search, User } from 'lucide-react';
+import { Send, Shield, Loader2, Lock, Database, Plus, Trash2, Settings, CheckCircle2, Edit2, Save, X as CloseIcon, UploadCloud, Search } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
@@ -35,7 +35,7 @@ export default function AdminDashboard() {
   const [contactLocation, setContactLocation] = useState('');
   const [settingsStatus, setSettingsStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
-  // Vault Dispatch State
+  // Vault Dispatch & Directory State
   const [adminSecret, setAdminSecret] = useState('');
   const [clients, setClients] = useState<any[]>([]);
   const [clientSearch, setClientSearch] = useState('');
@@ -155,7 +155,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // --- NEW: Fetch Clients Logic ---
   const fetchVaultClients = async () => {
     if (!adminSecret) {
       setVaultStatus('Please enter the Admin Upload Secret first.');
@@ -184,7 +183,7 @@ export default function AdminDashboard() {
   const handleVaultUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminSecret || !clientId || !file) {
-      setVaultStatus('Please select a client and attach a file.');
+      setVaultStatus('Please provide the Admin Secret, select a client, and attach a file.');
       return;
     }
 
@@ -218,7 +217,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Helper to filter clients based on search query
   const filteredClients = clients.filter(c => 
     c.fullName.toLowerCase().includes(clientSearch.toLowerCase()) || 
     c.email.toLowerCase().includes(clientSearch.toLowerCase()) ||
@@ -280,12 +278,140 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          {/* ... (Keep your existing Dispatch, Services, and Settings views exactly the same) ... */}
-          {adminView === 'dispatch' && ( /* Existing Code */ <></> )}
-          {adminView === 'services' && ( /* Existing Code */ <></> )}
-          {adminView === 'settings' && ( /* Existing Code */ <></> )}
+          {adminView === 'dispatch' && (
+            <form onSubmit={handleSendEmail} className="space-y-5 max-w-2xl animate-in fade-in duration-300">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900">Client Communication Dispatch</h2>
+                <p className="text-sm text-slate-500 mt-1">Send branded, automated updates to clients when their software or printing jobs are complete.</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Client Name</label>
+                  <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Client Email</label>
+                  <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700">Project Update Message</label>
+                <textarea required value={message} onChange={(e) => setMessage(e.target.value)} rows={5} className="w-full bg-slate-50 border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none"></textarea>
+              </div>
+              {status === 'success' && <div className="bg-green-50 text-green-700 border border-green-200 p-4 rounded-md text-sm font-bold">Email successfully transmitted.</div>}
+              {status === 'error' && <div className="bg-red-50 text-red-700 border border-red-200 p-4 rounded-md text-sm font-bold">Failed to dispatch email.</div>}
+              <button type="submit" disabled={status === 'sending'} className="bg-blue-900 text-white font-bold py-3 px-8 rounded-md hover:bg-blue-800 transition shadow-md flex items-center space-x-2">
+                {status === 'sending' ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-4 h-4" /><span>Dispatch Notification</span></>}
+              </button>
+            </form>
+          )}
 
-          {/* NEW VAULT VIEW WITH SEARCH */}
+          {adminView === 'services' && (
+             <div className="animate-in fade-in duration-300 grid grid-cols-1 lg:grid-cols-2 gap-12">
+               <div>
+                 <div className="mb-6">
+                   <h2 className="text-2xl font-bold text-slate-900">Manage Core Services</h2>
+                   <p className="text-sm text-slate-500 mt-1">Push new services and pricing tiers directly to the database.</p>
+                 </div>
+                 <form onSubmit={handleAddService} className="space-y-5 bg-slate-50 p-6 border border-gray-200 rounded-xl">
+                   <div className="space-y-2">
+                     <label className="text-sm font-semibold text-slate-700">Service / Tier Name</label>
+                     <input type="text" required value={serviceName} onChange={(e) => setServiceName(e.target.value)} placeholder="e.g. Enterprise Operations" className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-sm font-semibold text-slate-700">Base Price</label>
+                     <input type="text" required value={servicePrice} onChange={(e) => setServicePrice(e.target.value)} placeholder="e.g. KES 65,000" className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-sm font-semibold text-slate-700">Service Description</label>
+                     <textarea required value={serviceDesc} onChange={(e) => setServiceDesc(e.target.value)} rows={3} className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none"></textarea>
+                   </div>
+                   {dbStatus === 'success' && <div className="bg-green-50 text-green-700 border border-green-200 p-4 rounded-md text-sm font-bold">Service saved to database.</div>}
+                   <button type="submit" disabled={dbStatus === 'saving'} className="w-full bg-blue-900 text-white font-bold py-3 rounded-md hover:bg-blue-800 transition shadow-md flex justify-center items-center space-x-2">
+                     {dbStatus === 'saving' ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Plus className="w-4 h-4" /><span>Add Service</span></>}
+                   </button>
+                 </form>
+               </div>
+               
+               <div>
+                 <h3 className="text-lg font-bold text-slate-900 mb-4">Active Services in Production</h3>
+                 <div className="space-y-4">
+                   {services.length === 0 ? (
+                     <p className="text-sm text-slate-500 italic">No custom services found. Add one to overwrite default pricing.</p>
+                   ) : (
+                     services.map((service) => (
+                       <div key={service.id} className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+                         {editingId === service.id ? (
+                           <div className="space-y-3">
+                             <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-2 text-sm text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                             <input type="text" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className="w-full bg-slate-50 border border-gray-300 rounded-md p-2 text-sm text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                             <div className="flex space-x-2 mt-2">
+                               <button onClick={() => handleSaveEdit(service.id)} className="flex-1 bg-green-600 text-white text-xs font-bold py-2 rounded-md hover:bg-green-700 transition flex items-center justify-center space-x-1"><Save className="w-3 h-3" /><span>Save</span></button>
+                               <button onClick={() => setEditingId(null)} className="flex-1 bg-gray-200 text-slate-700 text-xs font-bold py-2 rounded-md hover:bg-gray-300 transition flex items-center justify-center space-x-1"><CloseIcon className="w-3 h-3" /><span>Cancel</span></button>
+                             </div>
+                           </div>
+                         ) : (
+                           <div className="flex justify-between items-start">
+                             <div>
+                               <h4 className="font-bold text-blue-900 text-sm">{service.service_name}</h4>
+                               <p className="text-xs text-slate-500 mt-1">{service.price}</p>
+                             </div>
+                             <div className="flex space-x-2">
+                               <button onClick={() => startEdit(service)} className="text-slate-400 hover:text-blue-600 transition p-1">
+                                 <Edit2 className="w-4 h-4" />
+                               </button>
+                               <button onClick={() => handleDeleteService(service.id)} className="text-slate-400 hover:text-red-600 transition p-1">
+                                 <Trash2 className="w-4 h-4" />
+                               </button>
+                             </div>
+                           </div>
+                         )}
+                       </div>
+                     ))
+                   )}
+                 </div>
+               </div>
+             </div>
+          )}
+
+          {adminView === 'settings' && (
+            <div className="animate-in fade-in duration-300">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900">Global Settings Configuration</h2>
+                <p className="text-sm text-slate-500 mt-1">Change your contact placement data and GitHub repository links across the entire public UI.</p>
+              </div>
+              
+              <form onSubmit={handleUpdateSettings} className="space-y-6 max-w-2xl bg-slate-50 p-6 border border-gray-200 rounded-xl">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">GitHub Landing Page URL</label>
+                  <input type="url" required value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700">Contact Phone Number</label>
+                    <input type="text" required value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700">Contact Email Address</label>
+                    <input type="email" required value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Headquarters Location</label>
+                  <input type="text" required value={contactLocation} onChange={(e) => setContactLocation(e.target.value)} className="w-full bg-white border border-gray-300 rounded-md p-3 text-slate-900 focus:border-blue-900 focus:ring-1 focus:outline-none" />
+                </div>
+                
+                {settingsStatus === 'success' && <div className="flex items-center space-x-2 bg-green-50 text-green-700 border border-green-200 p-4 rounded-md text-sm font-bold"><CheckCircle2 className="w-5 h-5" /><span>Global configurations updated successfully.</span></div>}
+                
+                <button type="submit" disabled={settingsStatus === 'saving'} className="bg-blue-900 text-white font-bold py-3 px-8 rounded-md hover:bg-blue-800 transition shadow-md flex items-center space-x-2">
+                  {settingsStatus === 'saving' ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Settings className="w-4 h-4" /><span>Update Global Layout</span></>}
+                </button>
+              </form>
+            </div>
+          )}
+
           {adminView === 'vault' && (
             <div className="animate-in fade-in duration-300">
               <div className="mb-6">
@@ -294,30 +420,28 @@ export default function AdminDashboard() {
               </div>
 
               {clients.length === 0 ? (
-                // Step 1: Request Admin Secret to unlock the database
                 <div className="max-w-xl bg-slate-50 p-6 border border-gray-200 rounded-xl space-y-4">
-                  <p className="text-sm font-semibold text-slate-700">Enter your upload secret to unlock the Client Directory.</p>
-                  <input 
-                    type="password" 
-                    placeholder="Enter Master Upload Password"
-                    value={adminSecret}
-                    onChange={(e) => setAdminSecret(e.target.value)}
-                    className="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
-                  />
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Admin Upload Secret</label>
+                    <input 
+                      type="password" 
+                      placeholder="Enter the master upload password"
+                      value={adminSecret}
+                      onChange={(e) => setAdminSecret(e.target.value)}
+                      className="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
+                    />
+                  </div>
                   <button 
                     onClick={fetchVaultClients}
                     disabled={isFetchingClients}
                     className="w-full bg-[#0F172A] text-white font-bold py-3 rounded flex items-center justify-center space-x-2 hover:bg-slate-700 transition"
                   >
-                    {isFetchingClients ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Lock className="w-4 h-4" /><span>Unlock Directory</span></>}
+                    {isFetchingClients ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Lock className="w-4 h-4" /><span>Unlock Client Directory</span></>}
                   </button>
                   {vaultStatus && <p className="text-sm text-red-600 font-semibold">{vaultStatus}</p>}
                 </div>
               ) : (
-                // Step 2: The Search & Upload Form
                 <form onSubmit={handleVaultUpload} className="space-y-6 max-w-3xl bg-slate-50 p-6 border border-gray-200 rounded-xl">
-                  
-                  {/* Search and Select Client */}
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">1. Search & Select Client</label>
                     <div className="relative mb-2">
@@ -327,7 +451,7 @@ export default function AdminDashboard() {
                         placeholder="Search by name, email, or company..."
                         value={clientSearch}
                         onChange={(e) => setClientSearch(e.target.value)}
-                        className="w-full pl-10 p-3 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
+                        className="w-full pl-10 p-3 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none bg-white"
                       />
                     </div>
                     
@@ -357,7 +481,7 @@ export default function AdminDashboard() {
                     <select 
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
+                      className="w-full p-3 bg-white border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
                     >
                       <option value="blueprints">Infrastructure Blueprints</option>
                       <option value="branding">Branding Kits</option>
@@ -392,6 +516,7 @@ export default function AdminDashboard() {
               )}
             </div>
           )}
+
         </div>
       </div>
     </div>
