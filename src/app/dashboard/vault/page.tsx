@@ -1,12 +1,21 @@
-'use client';
 import { useEffect, useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
 
-export default function SecureVault() {
-  const [files, setFiles] = useState<any[]>([]);
+export default function EnterpriseVault() {
+  const [vaultData, setVaultData] = useState({
+    blueprints: [],
+    branding: [],
+    compliance: []
+  });
   const [loading, setLoading] = useState(true);
-  const supabase = createClientComponentClient();
+  
+  // Modern SSR Browser Client
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
+  
   useEffect(() => {
     async function loadClientFiles() {
       // 1. Get the current logged-in enterprise client
