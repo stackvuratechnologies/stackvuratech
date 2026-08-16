@@ -10,6 +10,7 @@ export default function EnterpriseVault() {
     compliance: [] as any[]
   });
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(false);
   
   // Modern SSR Browser Client
   const supabase = createBrowserClient(
@@ -19,47 +20,67 @@ export default function EnterpriseVault() {
 
   useEffect(() => {
     async function fetchCategorizedAssets() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user }, error: sessionError } = await supabase.auth.getUser();
+        
+        // If there is no user session, show the access denied message instead of freezing
+        if (sessionError || !user) {
+          console.error("Session verification failed.");
+          setAuthError(true);
+          return;
+        }
 
-      // Helper function to fetch files from a specific subfolder
-      const getFiles = async (folder: string) => {
-        const { data } = await supabase.storage
-          .from('client-vault')
-          .list(`${user.id}/${folder}`);
-        return data ? data.filter(file => file.name !== '.emptyFolderPlaceholder') : [];
-      };
+        // Helper function with built-in error catching for Supabase Storage
+        const getFiles = async (folder: string) => {
+          const { data, error } = await supabase.storage
+            .from('client-vault')
+            .list(`${user.id}/${folder}`);
+            
+          if (error) {
+            console.error(`Failed to load ${folder}:`, error.message);
+            return [];
+          }
+          return data ? data.filter(file => file.name !== '.emptyFolderPlaceholder') : [];
+        };
 
-      // Fetch all three categories concurrently for maximum speed
-      const [blueprints, branding, compliance] = await Promise.all([
-        getFiles('blueprints'),
-        getFiles('branding'),
-        getFiles('compliance')
-      ]);
+        // Fetch all three categories concurrently
+        const [blueprints, branding, compliance] = await Promise.all([
+          getFiles('blueprints'),
+          getFiles('branding'),
+          getFiles('compliance')
+        ]);
 
-      setVaultData({ blueprints, branding, compliance });
-      setLoading(false);
+        setVaultData({ blueprints, branding, compliance });
+
+      } catch (err) {
+        console.error("Critical Vault Error:", err);
+      } finally {
+        // This guarantees the skeleton loader ALWAYS turns off
+        setLoading(false);
+      }
     }
 
     fetchCategorizedAssets();
   }, [supabase]);
 
-  // Use a signed URL to share a file for a fixed amount of time.
   const downloadAsset = async (folder: string, fileName: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Generates a secure, temporary link valid for 60 seconds.
     const { data, error } = await supabase.storage
       .from('client-vault')
       .createSignedUrl(`${user.id}/${folder}/${fileName}`, 60); 
+
+    if (error) {
+      alert(`Download failed: ${error.message}`);
+      return;
+    }
 
     if (data?.signedUrl) {
       window.open(data.signedUrl, '_blank');
     }
   };
 
-  // UI Component for rendering a specific category block
   const CategoryBlock = ({ title, description, files, folder }: { title: string, description: string, files: any[], folder: string }) => (
     <div className="mb-8 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
       <div className="bg-slate-50 border-b border-slate-200 p-5">
@@ -76,12 +97,12 @@ export default function EnterpriseVault() {
                 <div>
                   <p className="font-medium text-slate-700">{file.name}</p>
                   <p className="text-xs text-slate-400 uppercase mt-1">
-                    {(file.metadata?.size / 1024 / 1024).toFixed(2)} MB
+                    {file.metadata?.size ? (file.metadata.size / 1024 / 1024).toFixed(2) : '0.00'} MB
                   </p>
                 </div>
                 <button 
                   onClick={() => downloadAsset(folder, file.name)}
-                  className="px-4 py-2 bg-[#0F172A] text-white text-sm font-medium rounded hover:bg-slate-700 transition"
+                  className="px-4 py-2 bg-[#0F172A] text-white text-sm font-medium rounded hover:bg-slate-700 transition shadow-sm"
                 >
                   Download
                 </button>
@@ -93,14 +114,29 @@ export default function EnterpriseVault() {
     </div>
   );
 
+  // If the user isn't logged in properly, show them this strict error
+  if (authError) {
+    return (
+      <div className="max-w-3xl mx-auto p-12 text-center mt-12 bg-red-50 border border-red-200 rounded-xl">
+        <h2 className="text-2xl font-bold text-red-700 mb-2">Access Denied</h2>
+        <p className="text-red-600">You must be logged into your enterprise account to view the secure vault.</p>
+        <button onClick={() => window.location.href = '/'} className="mt-6 bg-red-700 text-white px-6 py-2 rounded font-bold hover:bg-red-800 transition">
+          Return to Login
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto p-8">
       <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Secure Asset Vault</h1>
       <p className="text-slate-500 mb-8">Encrypted, centralized repository for your project deliverables.</p>
 
       {loading ? (
-        <div className="flex animate-pulse space-x-4">
-          <div className="h-10 bg-slate-200 rounded w-1/4"></div>
+        // The skeleton loader
+        <div className="flex flex-col space-y-8 animate-pulse">
+          <div className="h-32 bg-slate-200 rounded-xl w-full"></div>
+          <div className="h-32 bg-slate-200 rounded-xl w-full"></div>
         </div>
       ) : (
         <>
