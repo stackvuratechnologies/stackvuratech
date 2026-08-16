@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Send, Shield, Loader2, Lock, Database, Plus, Trash2, Settings, CheckCircle2, Edit2, Save, X as CloseIcon, UploadCloud } from 'lucide-react';
+import { Send, Shield, Loader2, Lock, Database, Plus, Trash2, Settings, CheckCircle2, Edit2, Save, X as CloseIcon, UploadCloud, Search } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
@@ -35,8 +35,11 @@ export default function AdminDashboard() {
   const [contactLocation, setContactLocation] = useState('');
   const [settingsStatus, setSettingsStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
-  // Vault Dispatch State
+  // Vault Dispatch State & Directory Search
   const [adminSecret, setAdminSecret] = useState('');
+  const [clients, setClients] = useState<any[]>([]);
+  const [clientSearch, setClientSearch] = useState('');
+  const [isFetchingClients, setIsFetchingClients] = useState(false);
   const [clientId, setClientId] = useState('');
   const [category, setCategory] = useState('blueprints');
   const [file, setFile] = useState<File | null>(null);
@@ -152,10 +155,36 @@ export default function AdminDashboard() {
     }
   };
 
+  // --- NEW: Fetch Clients Logic ---
+  const fetchVaultClients = async () => {
+    if (!adminSecret) {
+      setVaultStatus('Please enter the Admin Upload Secret first.');
+      return;
+    }
+    setIsFetchingClients(true);
+    setVaultStatus('');
+    try {
+      const res = await fetch('/api/admin/clients', {
+        headers: { 'Authorization': `Bearer ${adminSecret}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setClients(data.clients);
+        setVaultStatus('');
+      } else {
+        setVaultStatus(data.error || 'Failed to load clients.');
+      }
+    } catch (e: any) {
+      setVaultStatus('Network error while loading clients.');
+    } finally {
+      setIsFetchingClients(false);
+    }
+  };
+
   const handleVaultUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminSecret || !clientId || !file) {
-      setVaultStatus('Please provide the Admin Secret, a Client ID, and select a file.');
+      setVaultStatus('Please provide the Admin Secret, select a client, and attach a file.');
       return;
     }
 
@@ -168,18 +197,27 @@ export default function AdminDashboard() {
     formData.append('category', category);
 
     try {
-      const response = await fetch('/api/admin/upload', {
+      // 1. FIXED: Pointing exactly to your actual backend file path
+      const response = await fetch('/api/upload/admin', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${adminSecret}` },
         body: formData,
       });
 
-      const result = await response.json();
+      // 2. SAFEGUARD: We will safely catch non-JSON text errors (like "Server Error" or "Payload Too Large")
+      let result;
+      try {
+        result = await response.json();
+      } catch (parseError) {
+        throw new Error("Server crashed or file is too large (over 4MB). Please check Vercel logs.");
+      }
+
       if (!response.ok) throw new Error(result.error || 'Upload failed due to a server error.');
 
       setVaultStatus('Asset successfully secured in client vault.');
       setFile(null); 
-      setAdminSecret('');
+      setClientId('');
+      setClientSearch('');
       
     } catch (err: any) {
       setVaultStatus(`Upload failed: ${err.message}`);
@@ -187,6 +225,13 @@ export default function AdminDashboard() {
       setIsUploading(false);
     }
   };
+
+  // Helper to filter clients based on search query
+  const filteredClients = clients.filter(c => 
+    (c.fullName && c.fullName.toLowerCase().includes(clientSearch.toLowerCase())) || 
+    (c.email && c.email.toLowerCase().includes(clientSearch.toLowerCase())) ||
+    (c.company && c.company.toLowerCase().includes(clientSearch.toLowerCase()))
+  );
 
   if (!isAuthorized) {
     return (
@@ -380,72 +425,105 @@ export default function AdminDashboard() {
           {adminView === 'vault' && (
             <div className="animate-in fade-in duration-300">
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-slate-900">Admin: Dispatch Deliverables</h2>
-                <p className="text-sm text-slate-500 mt-1">Securely push assets directly into client enterprise vaults via server-side verification.</p>
+                <h2 className="text-2xl font-bold text-slate-900">Admin: Vault Asset Dispatch</h2>
+                <p className="text-sm text-slate-500 mt-1">Search the database for your clients and securely push files directly to their dashboard.</p>
               </div>
 
-              <form onSubmit={handleVaultUpload} className="space-y-6 max-w-2xl bg-slate-50 p-6 border border-gray-200 rounded-xl">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Admin Upload Secret</label>
-                  <input 
-                    type="password" 
-                    placeholder="Enter the master upload password"
-                    value={adminSecret}
-                    onChange={(e) => setAdminSecret(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Target Client (User ID)</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. 9048a689-d3fd-4f60-9e89-31e986640370"
-                    value={clientId}
-                    onChange={(e) => setClientId(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Asset Category</label>
-                  <select 
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
-                  >
-                    <option value="blueprints">Infrastructure Blueprints</option>
-                    <option value="branding">Branding Kits</option>
-                    <option value="compliance">Compliance & Security</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Select File</label>
-                  <input 
-                    type="file" 
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                    className="w-full p-2 border border-slate-300 rounded text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
-                    required
-                  />
-                </div>
-
-                <button 
-                  type="submit" 
-                  disabled={isUploading}
-                  className={`w-full py-3 rounded font-bold text-white transition ${isUploading ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#0F172A] hover:bg-slate-700'}`}
-                >
-                  {isUploading ? 'Encrypting & Uploading...' : 'Dispatch to Client Vault'}
-                </button>
-
-                {vaultStatus && (
-                  <div className={`p-4 rounded text-sm font-medium ${vaultStatus.includes('failed') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
-                    {vaultStatus}
+              {clients.length === 0 ? (
+                <div className="max-w-xl bg-slate-50 p-6 border border-gray-200 rounded-xl space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Admin Upload Secret</label>
+                    <input 
+                      type="password" 
+                      placeholder="Enter the master upload password"
+                      value={adminSecret}
+                      onChange={(e) => setAdminSecret(e.target.value)}
+                      className="w-full p-3 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
+                    />
                   </div>
-                )}
-              </form>
+                  <button 
+                    onClick={fetchVaultClients}
+                    disabled={isFetchingClients}
+                    className="w-full bg-[#0F172A] text-white font-bold py-3 rounded flex items-center justify-center space-x-2 hover:bg-slate-700 transition"
+                  >
+                    {isFetchingClients ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Lock className="w-4 h-4" /><span>Unlock Client Directory</span></>}
+                  </button>
+                  {vaultStatus && <p className="text-sm text-red-600 font-semibold">{vaultStatus}</p>}
+                </div>
+              ) : (
+                <form onSubmit={handleVaultUpload} className="space-y-6 max-w-3xl bg-slate-50 p-6 border border-gray-200 rounded-xl">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">1. Search & Select Client</label>
+                    <div className="relative mb-2">
+                      <Search className="w-5 h-5 absolute left-3 top-3 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="Search by name, email, or company..."
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                        className="w-full pl-10 p-3 border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none bg-white"
+                      />
+                    </div>
+                    
+                    <div className="bg-white border border-slate-200 rounded-md max-h-48 overflow-y-auto shadow-inner">
+                      {filteredClients.length === 0 ? (
+                        <p className="p-4 text-sm text-slate-500">No clients found matching "{clientSearch}"</p>
+                      ) : (
+                        filteredClients.map(c => (
+                          <div 
+                            key={c.id} 
+                            onClick={() => setClientId(c.id)}
+                            className={`p-3 border-b last:border-b-0 cursor-pointer flex justify-between items-center transition ${clientId === c.id ? 'bg-blue-50 border-l-4 border-l-blue-900' : 'hover:bg-slate-50'}`}
+                          >
+                            <div>
+                              <p className="font-bold text-sm text-slate-900">{c.fullName} {c.company && <span className="text-slate-500 font-normal">({c.company})</span>}</p>
+                              <p className="text-xs text-slate-500">{c.email}</p>
+                            </div>
+                            {clientId === c.id && <CheckCircle2 className="w-5 h-5 text-blue-900" />}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">2. Asset Category</label>
+                    <select 
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full p-3 bg-white border border-slate-300 rounded focus:ring-2 focus:ring-[#0F172A] outline-none"
+                    >
+                      <option value="blueprints">Infrastructure Blueprints</option>
+                      <option value="branding">Branding Kits</option>
+                      <option value="compliance">Compliance & Security</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">3. Select File to Upload</label>
+                    <input 
+                      type="file" 
+                      onChange={(e) => setFile(e.target.files?.[0] || null)}
+                      className="w-full p-3 bg-white border border-slate-300 rounded text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-900 hover:file:bg-blue-100"
+                      required
+                    />
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    disabled={isUploading || !clientId}
+                    className={`w-full py-4 rounded font-bold text-white transition flex justify-center items-center space-x-2 ${isUploading || !clientId ? 'bg-slate-400 cursor-not-allowed' : 'bg-[#0F172A] hover:bg-slate-700 shadow-md'}`}
+                  >
+                    {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><UploadCloud className="w-5 h-5" /><span>Dispatch Asset to Selected Client</span></>}
+                  </button>
+
+                  {vaultStatus && (
+                    <div className={`p-4 rounded text-sm font-medium ${vaultStatus.includes('failed') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
+                      {vaultStatus}
+                    </div>
+                  )}
+                </form>
+              )}
             </div>
           )}
 
