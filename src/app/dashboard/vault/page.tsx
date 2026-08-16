@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import { supabase } from '@/lib/supabase';
 
 export default function EnterpriseVault() {
   const [vaultData, setVaultData] = useState({
@@ -11,26 +11,19 @@ export default function EnterpriseVault() {
   });
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(false);
-  
-  // Modern SSR Browser Client
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
 
   useEffect(() => {
     async function fetchCategorizedAssets() {
       try {
+        // Fetch the user using the exact same client that logged them in
         const { data: { user }, error: sessionError } = await supabase.auth.getUser();
         
-        // If there is no user session, show the access denied message instead of freezing
         if (sessionError || !user) {
           console.error("Session verification failed.");
           setAuthError(true);
           return;
         }
 
-        // Helper function with built-in error catching for Supabase Storage
         const getFiles = async (folder: string) => {
           const { data, error } = await supabase.storage
             .from('client-vault')
@@ -43,7 +36,6 @@ export default function EnterpriseVault() {
           return data ? data.filter(file => file.name !== '.emptyFolderPlaceholder') : [];
         };
 
-        // Fetch all three categories concurrently
         const [blueprints, branding, compliance] = await Promise.all([
           getFiles('blueprints'),
           getFiles('branding'),
@@ -55,13 +47,12 @@ export default function EnterpriseVault() {
       } catch (err) {
         console.error("Critical Vault Error:", err);
       } finally {
-        // This guarantees the skeleton loader ALWAYS turns off
         setLoading(false);
       }
     }
 
     fetchCategorizedAssets();
-  }, [supabase]);
+  }, []);
 
   const downloadAsset = async (folder: string, fileName: string) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -114,7 +105,6 @@ export default function EnterpriseVault() {
     </div>
   );
 
-  // If the user isn't logged in properly, show them this strict error
   if (authError) {
     return (
       <div className="max-w-3xl mx-auto p-12 text-center mt-12 bg-red-50 border border-red-200 rounded-xl">
@@ -133,7 +123,6 @@ export default function EnterpriseVault() {
       <p className="text-slate-500 mb-8">Encrypted, centralized repository for your project deliverables.</p>
 
       {loading ? (
-        // The skeleton loader
         <div className="flex flex-col space-y-8 animate-pulse">
           <div className="h-32 bg-slate-200 rounded-xl w-full"></div>
           <div className="h-32 bg-slate-200 rounded-xl w-full"></div>
