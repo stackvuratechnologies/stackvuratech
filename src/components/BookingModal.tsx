@@ -24,17 +24,16 @@ export default function BookingModal({ isOpen, onClose, preselectedService }: Bo
     const formData = new FormData(form);
 
     try {
-      const response = await fetch('https://api.web3forms.com/submit', {
+      const response = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          access_key: process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY,
-          subject: `New Enterprise Booking: ${formData.get('service')}`,
-          service_requested: formData.get('service'),
-          preferred_date: formData.get('date'),
-          time_slot: formData.get('time'),
-          client_name: formData.get('fullName'),
-          contact_number: formData.get('phone'),
+          type: 'booking', // Informs the backend this is a calendar request
+          service: formData.get('service'),
+          date: formData.get('date'),
+          time: formData.get('time'),
+          fullName: formData.get('fullName'),
+          phone: formData.get('phone'),
         }),
       });
 

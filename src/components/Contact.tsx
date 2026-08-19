@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Send, MessageSquare } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function Contact() {
@@ -26,44 +26,24 @@ export default function Contact() {
     fetchSettings();
   }, []);
 
-  const sendDiscordAlert = async (errorMsg: string, formDataObj: any) => {
-    const webhook = process.env.NEXT_PUBLIC_DISCORD_WEBHOOK_URL;
-    if (!webhook) return;
-    try {
-      await fetch(webhook, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: `🚨 **StackVura Alert** 🚨\n**Issue:** ${errorMsg}\n**Payload:**\n\`\`\`json\n${JSON.stringify(formDataObj, null, 2)}\n\`\`\``
-        })
-      });
-    } catch (e) {
-      console.error("Discord telemetry failed.");
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setStatus('submitting');
     
     const form = e.currentTarget;
     const formData = new FormData(form);
-    
-    const dataObj = {
-      company_name: formData.get('companyName'),
-      contact_name: formData.get('contactName'),
-      email: formData.get('email'),
-      service_requested: formData.get('service'),
-      project_details: formData.get('details')
-    };
 
     try {
-      const response = await fetch('https://api.web3forms.com/submit', {
+      const response = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          access_key: process.env.NEXT_PUBLIC_WEB3FORMS_ACCESS_KEY,
-          ...dataObj
+          type: 'contact', // Tells the backend which format to use
+          companyName: formData.get('companyName'),
+          contactName: formData.get('contactName'),
+          email: formData.get('email'),
+          service: formData.get('service'),
+          details: formData.get('details')
         }),
       });
 
@@ -71,13 +51,10 @@ export default function Contact() {
         setStatus('success');
         form.reset();
       } else {
-        const errorData = await response.json();
         setStatus('error');
-        await sendDiscordAlert(`Web3Forms Error: ${errorData.message}`, dataObj);
       }
     } catch (error: any) {
       setStatus('error');
-      await sendDiscordAlert(`Network Exception: ${error.message}`, dataObj);
     }
   };
 
