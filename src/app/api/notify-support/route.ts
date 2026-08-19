@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     // 1. DISPATCH WHATSAPP NOTIFICATION (CallMeBot)
     // ---------------------------------------------------------
-    // Format the text using WhatsApp's markdown (* for bold)
+    
     const whatsappText = ` *New StackVura Ticket* \n\n*Client:* ${email}\n*Type:* ${ticketType}\n*Subject:* ${ticketSubject}\n\n*Message:*\n${ticketMessage}`;
     
     // URL-encode the text so spaces and special characters transmit safely over a GET request
